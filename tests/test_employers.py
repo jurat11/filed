@@ -139,3 +139,12 @@ def test_dominant_fein_absorbs_a_typo():
     )  # fmt: skip
     # The typo row keeps its own FEIN employer; FEINs are never merged.
     assert _employer_of(con, "typo")[1] == "71-0938319"
+
+
+def test_shared_normalizer_vectors():
+    # The site's TypeScript port (web/lib/names.ts) is tested on the same file.
+    import json
+
+    cases = json.loads((Path(__file__).parent / "fixtures" / "normalize_cases.json").read_text())
+    for c in cases:
+        assert normalize_name(c["raw"]) == c["norm"], c

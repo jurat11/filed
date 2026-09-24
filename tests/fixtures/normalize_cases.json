@@ -1,0 +1,134 @@
+[
+ {
+  "raw": "Google, L.L.C.",
+  "norm": "GOOGLE"
+ },
+ {
+  "raw": "The Goldman Sachs Group, Inc.",
+  "norm": "GOLDMAN SACHS GROUP"
+ },
+ {
+  "raw": "JPMorgan Chase & Co.",
+  "norm": "JPMORGAN CHASE"
+ },
+ {
+  "raw": "AT&T Services, Inc.",
+  "norm": "AT T SERVICES"
+ },
+ {
+  "raw": "AT and T Services",
+  "norm": "AT T SERVICES"
+ },
+ {
+  "raw": "ERNST YOUNG US LLP",
+  "norm": "ERNST YOUNG US"
+ },
+ {
+  "raw": "Ernst & Young U.S. LLP",
+  "norm": "ERNST YOUNG US"
+ },
+ {
+  "raw": "Samsung Electronics Co., Ltd.",
+  "norm": "SAMSUNG ELECTRONICS"
+ },
+ {
+  "raw": "Fidelity Technology Group, LLC d/b/a Fidelity Investments",
+  "norm": "FIDELITY TECHNOLOGY GROUP"
+ },
+ {
+  "raw": "Macy's, Inc.",
+  "norm": "MACYS"
+ },
+ {
+  "raw": "Nestlé USA Inc",
+  "norm": "NESTLE USA"
+ },
+ {
+  "raw": "Bank of the West",
+  "norm": "BANK OF THE WEST"
+ },
+ {
+  "raw": "THE",
+  "norm": "THE"
+ },
+ {
+  "raw": "",
+  "norm": ""
+ },
+ {
+  "raw": "ernst and young",
+  "norm": "ERNST YOUNG"
+ },
+ {
+  "raw": "ernst & young",
+  "norm": "ERNST YOUNG"
+ },
+ {
+  "raw": "Procter + Gamble",
+  "norm": "PROCTER GAMBLE"
+ },
+ {
+  "raw": "Amazon.com Services LLC",
+  "norm": "AMAZONCOM SERVICES"
+ },
+ {
+  "raw": "amazon.com",
+  "norm": "AMAZONCOM"
+ },
+ {
+  "raw": "L&T Technology Services Limited",
+  "norm": "L T TECHNOLOGY SERVICES"
+ },
+ {
+  "raw": "  Tata   Consultancy\tServices ",
+  "norm": "TATA CONSULTANCY SERVICES"
+ },
+ {
+  "raw": "Foo DBA Bar",
+  "norm": "FOO"
+ },
+ {
+  "raw": "Foo D/B/A Bar",
+  "norm": "FOO"
+ },
+ {
+  "raw": "O’Reilly Media",
+  "norm": "OREILLY MEDIA"
+ },
+ {
+  "raw": "Société Générale",
+  "norm": "SOCIETE GENERALE"
+ },
+ {
+  "raw": "ACME, INC., CO. LTD",
+  "norm": "ACME"
+ },
+ {
+  "raw": "and",
+  "norm": "AND"
+ },
+ {
+  "raw": "Barnes and Noble",
+  "norm": "BARNES NOBLE"
+ },
+ {
+  "raw": "3M COMPANY",
+  "norm": "3M"
+ },
+ {
+  "raw": "Wells Fargo Bank, N.A.",
+  "norm": "WELLS FARGO BANK NA"
+ },
+ {
+  "raw": "abc-def_ghi",
+  "norm": "ABC DEF GHI"
+ },
+ {
+  "raw": "The The Company",
+  "norm": "THE"
+ },
+ {
+  "raw": "X Corp.",
+  "norm": "X"
+ }
+]

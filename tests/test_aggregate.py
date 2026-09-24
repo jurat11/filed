@@ -217,3 +217,46 @@ def test_top_lists_are_latest_certified_year(tmp_path, kind):
         "SELECT fiscal_year, value, certified FROM agg_lca_year_top WHERE kind = ?", [kind]
     ).fetchall()
     assert got == [(2026, "ENGINEER B" if kind == "title" else "DC", 1)]
+
+
+def test_per_role_wage_percentiles(tmp_path):
+    rows = [case(i, soc_code="15-1252", wage_from=w) for i, w in enumerate([90e3, 100e3, 110e3])]
+    rows += [case(10 + i, soc_code="13-2051", wage_from=w) for i, w in enumerate([70e3, 80e3])]
+    rows += [case(20, soc_code="13-2051", wage_from=500e3, full_time=False)]
+    con = build(rows, tmp_path=tmp_path)
+    got = {
+        r[0]: r[1:]
+        for r in con.execute(
+            "SELECT role_group, certified, wage_rows, wage_p25, wage_median, wage_p75 "
+            "FROM agg_lca_year_role"
+        ).fetchall()
+    }
+    assert got == {
+        "Software engineering": (3, 3, 95_000, 100_000, 105_000),
+        "Finance": (3, 2, 72_500, 75_000, 77_500),
+    }
+
+
+def test_employer_naics_is_most_frequent_code(tmp_path):
+    rows = [
+        case(1, naics_code="541511"),
+        case(2, naics_code="541512"),
+        case(3, naics_code="541512"),
+    ]
+    con = build(rows, tmp_path=tmp_path)
+    assert one(con, "SELECT naics FROM agg_employers WHERE has_lca") == ("541512",)
+
+
+def test_links_join_possible_link_pairs_to_both_employers(tmp_path):
+    rows = [
+        case(1, employer_name="ASML US, LP", employer_fein="82-2530621", employer_state="AZ"),
+        case(2, employer_name="ASML US, LLC", employer_fein="77-0568140", employer_state="AZ"),
+    ]
+    con = build(rows, tmp_path=tmp_path)
+    got = con.execute(
+        "SELECT a.display_name, b.display_name, l.norm_name FROM agg_links l "
+        "JOIN agg_employers a ON a.employer_id = l.employer_a "
+        "JOIN agg_employers b ON b.employer_id = l.employer_b"
+    ).fetchall()
+    assert sorted(got[0][:2]) == ["ASML US, LLC", "ASML US, LP"]
+    assert got[0][2] == "ASML US"

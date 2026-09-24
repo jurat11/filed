@@ -14,6 +14,9 @@ import datetime as dt
 import json
 import logging
 import os
+import time
+import urllib.error
+import urllib.request
 
 import duckdb
 import psycopg
@@ -32,14 +35,15 @@ TABLES = {
     "agg_lca_cube": "lca_cube",
     "agg_entry_signal": "entry_signal",
     "uscis_year": "uscis_year",
+    "agg_links": "links",
 }
 
 INDEXES = [
     "CREATE UNIQUE INDEX ON {s}.employers (slug)",
     "CREATE UNIQUE INDEX ON {s}.employers (employer_id)",
-    "CREATE INDEX ON {s}.employers USING gin (search_text gin_trgm_ops)",
     "CREATE INDEX ON {s}.employers (uscis_initial_total DESC)",
     "CREATE INDEX ON {s}.aliases (employer_id)",
+    "CREATE INDEX ON {s}.aliases USING gin (norm gin_trgm_ops)",
     "CREATE INDEX ON {s}.lca_year (employer_id, fiscal_year)",
     "CREATE INDEX ON {s}.lca_year_role (employer_id)",
     "CREATE INDEX ON {s}.lca_year_top (employer_id)",
@@ -47,6 +51,9 @@ INDEXES = [
     "CREATE INDEX ON {s}.lca_cube (employer_id)",
     "CREATE INDEX ON {s}.entry_signal (employer_id)",
     "CREATE INDEX ON {s}.uscis_year (employer_id)",
+    "CREATE INDEX ON {s}.links (employer_a)",
+    "CREATE INDEX ON {s}.links (employer_b)",
+    "CREATE INDEX ON {s}.employers (naics, state, certified_total DESC)",
 ]
 
 PG_TYPES = {
@@ -85,8 +92,53 @@ def database_url() -> str:
     return os.environ.get("DATABASE_URL_DIRECT") or os.environ["DATABASE_URL"]
 
 
+class RevalidateError(RuntimeError):
+    pass
+
+
+def revalidate(loaded_at: str, attempts: int = 4, wait: float = 5.0) -> dict:
+    """Ask the site to drop its cached pages (web/app/api/revalidate/route.ts).
+
+    Needs FILED_SITE_URL and REVALIDATE_SECRET; skipped (with a log line) when either is
+    unset, so a local load does not need the site. The site answers 409 until the database
+    it reads shows this `loaded_at`; that is retried. Any other failure raises after the
+    load has committed, so the data is live but the caller sees that pages may be stale for
+    up to a day (the cache's fallback).
+    """
+    site, secret = os.environ.get("FILED_SITE_URL"), os.environ.get("REVALIDATE_SECRET")
+    if not site or not secret:
+        log.info("revalidate skipped: FILED_SITE_URL or REVALIDATE_SECRET not set")
+        return {"skipped": True}
+    body = json.dumps({"loaded_at": loaded_at}).encode()
+    last = ""
+    for i in range(attempts):
+        req = urllib.request.Request(
+            site.rstrip("/") + "/api/revalidate",
+            data=body,
+            method="POST",
+            headers={"Authorization": f"Bearer {secret}", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                out = json.loads(r.read())
+                log.info("revalidated %s: %s", site, out)
+                return out
+        except urllib.error.HTTPError as e:
+            last = f"HTTP {e.code}: {e.read()[:200]!r}"
+            if e.code not in (409, 502, 503, 504):
+                break
+        except urllib.error.URLError as e:
+            last = str(e.reason)
+        if i + 1 < attempts:
+            time.sleep(wait * (i + 1))
+    raise RevalidateError(f"revalidate {site} failed: {last}")
+
+
 def run() -> dict:
-    return load(ingest.connect(), database_url())
+    duck = ingest.connect()
+    counts = load(duck, database_url())
+    counts["revalidate"] = revalidate(counts["loaded_at"])
+    return counts
 
 
 def load(
@@ -148,6 +200,7 @@ def load(
             ],
         }
         cur.executemany(f"INSERT INTO {schema}.meta VALUES (%s, %s)", list(meta.items()))
+        counts["loaded_at"] = meta["loaded_at"]
 
         for ix in INDEXES:
             cur.execute(ix.format(s=schema))
