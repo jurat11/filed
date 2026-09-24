@@ -1,0 +1,3 @@
+group_slug,group_name,fein,status,evidence_url,reviewed_by,reviewed_on,note
+amazon,Amazon.com Inc. subsidiaries (test fixture),82-0544687,reviewed,https://example.test/evidence,test fixture,2026-09-24,Test data for the site's end-to-end tests; not a reviewed claim
+amazon,Amazon.com Inc. subsidiaries (test fixture),20-4938068,reviewed,https://example.test/evidence,test fixture,2026-09-24,Test data for the site's end-to-end tests; not a reviewed claim

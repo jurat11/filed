@@ -11,8 +11,10 @@ import logging
 
 import duckdb
 
-from etl import ingest
+from etl import cap_exempt, ingest
+from etl import groups as parent_groups
 from etl.soc import role_group_sql
+from etl.wages import WAGE_MAX, WAGE_MIN
 
 log = logging.getLogger(__name__)
 
@@ -31,11 +33,17 @@ CERT = "case_status = 'Certified'"
 WAGE_OK = f"{CERT} AND full_time AND wage_valid"
 
 
-def build(con: duckdb.DuckDBPyConnection) -> dict:
+def build(
+    con: duckdb.DuckDBPyConnection,
+    irs_paths: list | None = None,
+    parents=None,
+    record: bool = False,
+) -> dict:
     con.execute(f"""
         CREATE OR REPLACE TEMP TABLE c AS
         SELECT *, {role_group_sql("soc_code")} AS role_group,
-               coalesce(pw_wage_level, 'none') AS level
+               coalesce(pw_wage_level, 'none') AS level,
+               coalesce(pw_annual BETWEEN {WAGE_MIN} AND {WAGE_MAX}, false) AS pw_valid
         FROM lca
     """)
     # Source label per fiscal year: the files behind it, and the latest quarter.
@@ -85,7 +93,11 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             round(quantile_cont(wage_annual, 0.50) FILTER (WHERE full_time AND wage_valid))
                 AS wage_median,
             round(quantile_cont(wage_annual, 0.75) FILTER (WHERE full_time AND wage_valid))
-                AS wage_p75
+                AS wage_p75,
+            -- Prevailing wage on the same rows, for occupation and area context (D32).
+            count(*) FILTER (WHERE full_time AND wage_valid AND pw_valid)::INT AS pw_rows,
+            round(median(pw_annual) FILTER (WHERE full_time AND wage_valid AND pw_valid))
+                AS pw_median
         FROM c WHERE {CERT}
           AND fiscal_year >= (SELECT max(fiscal_year) - 1 FROM lca)
         GROUP BY ALL
@@ -189,6 +201,26 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
         JOIN uscis_employer m USING (norm, state, tax4)
         LEFT JOIN us ON us.employer_id = o.employer_id
     """)
+    # USCIS-only employers: the two-digit NAICS sector from the USCIS file.
+    con.execute("""
+        UPDATE agg_employers a SET naics = u.naics FROM (
+            SELECT e.final_id AS employer_id,
+                   mode(nullif(regexp_extract(r.naics, '^\\d+'), '')) AS naics
+            FROM uscis_raw r JOIN uscis_norm n ON n.raw = r.employer_name
+            JOIN uscis_employer e ON e.norm = n.norm AND e.state IS NOT DISTINCT FROM r.state
+                                 AND e.tax4 IS NOT DISTINCT FROM r.tax4
+            WHERE NOT e.matched GROUP BY 1
+        ) u WHERE a.employer_id = u.employer_id AND NOT a.has_lca
+    """)
+    # "Likely cap-exempt" (D30): the rule that fired, never a yes/no fact.
+    cap_exempt.load_irs(con, irs_paths or [], record=record)
+    con.execute(f"""
+        CREATE OR REPLACE TABLE agg_employers AS
+        SELECT *, {cap_exempt.rule_sql("display_name", "naics", "fein")} AS cap_exempt_rule
+        FROM agg_employers
+    """)
+    group_stats = parent_groups.build(con, parents) if parents else parent_groups.build(con)
+    log.info("groups: %s", group_stats)
     con.execute("""
         CREATE OR REPLACE TABLE agg_aliases AS
         SELECT employer_id, name, norm, 'lca' AS source, rows FROM employer_aliases
@@ -207,12 +239,13 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
     """)
     counts = {
         t: con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
-        for t in ["agg_links", "agg_employers", "agg_aliases", "agg_lca_year", "agg_lca_year_role",
-                  "agg_lca_year_top", "agg_lca_cube", "agg_entry_signal", "uscis_year"]
+        for t in ["agg_groups", "agg_links", "agg_employers", "agg_aliases", "agg_lca_year",
+                  "agg_lca_year_role", "agg_lca_year_top", "agg_lca_cube", "agg_entry_signal",
+                  "uscis_year"]
     }  # fmt: skip
     log.info("aggregates: %s", counts)
     return counts
 
 
 def run() -> dict:
-    return build(ingest.connect())
+    return build(ingest.connect(), irs_paths=cap_exempt.irs_files(), record=True)

@@ -36,6 +36,7 @@ TABLES = {
     "agg_entry_signal": "entry_signal",
     "uscis_year": "uscis_year",
     "agg_links": "links",
+    "agg_groups": "groups",
 }
 
 # Each index serves a query in web/lib (docs/postgres-growth.md lists which). Indexes no
@@ -53,6 +54,8 @@ INDEXES = [
     "CREATE INDEX ON {s}.uscis_year (employer_id)",
     "CREATE INDEX ON {s}.links (employer_a)",
     "CREATE INDEX ON {s}.links (employer_b)",
+    "CREATE INDEX ON {s}.groups (employer_id)",
+    "CREATE INDEX ON {s}.groups (group_slug)",
     "CREATE INDEX ON {s}.employers (naics, state, certified_total DESC)",
 ]
 
