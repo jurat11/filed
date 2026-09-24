@@ -32,9 +32,13 @@ def _run(step: str, args: argparse.Namespace):
 
         return ingest.run(restage=args.restage)
     if step == "wages":
-        from etl import ingest, wages
+        from etl import ingest, manifest, wages
 
-        return wages.add_annual_wages(ingest.connect())
+        con = ingest.connect()
+        stats = wages.add_annual_wages(con)
+        (manifest.ROOT / "eval").mkdir(exist_ok=True)
+        wages.write_report(con, manifest.ROOT / "eval" / "wages.md")
+        return stats
     if step == "resolve":
         from etl import employers
 
