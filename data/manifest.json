@@ -344,6 +344,18 @@
       "sha256": "fe3635f43946d04a2f402b8040a9c946920436c9371ebbd37130a9209a6410f3",
       "bytes": 182305,
       "kind": "record_layout"
+    },
+    "uscis/h1b_datahubexport-2023.csv": {
+      "name": "h1b_datahubexport-2023.csv",
+      "source_url": "https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv",
+      "downloaded": "2026-09-24",
+      "sha256": "96f42309393249a7368bd418b2b2c5111b45acc7ccec487a0f024dfa07d71931",
+      "bytes": 2202574,
+      "kind": "uscis",
+      "fiscal_year": 2023,
+      "quarter": 4,
+      "raw_rows": 33332,
+      "loaded_rows": 33332
     }
   }
 }

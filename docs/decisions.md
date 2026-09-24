@@ -52,6 +52,8 @@ The brief says the worksites file starts in FY2026, but dol.gov publishes an `LC
 
 ## USCIS
 
+**D18. USCIS years loaded: FY2023 only.** USCIS publishes Employer Data Hub files as CSV up to FY2023 (https://www.uscis.gov/archive/h-1b-employer-data-hub-files). FY2024 to FY2026 are only in the hub's interactive Tableau view, which cannot be scripted and was not downloaded by hand for this build. The FY2023 export has USCIS's own "Initial Approval" and "Continuing Approval" columns, so D8 below is not needed for it. The site labels USCIS figures FY2023, and the entry-level signal shows USCIS initial approvals for FY2025 to FY2026 as "not loaded", never as zero.
+
 **D8. Initial and continuing.** The Employer Data Hub now reports six categories (New Employment, New Concurrent, Continuation, Change with Same Employer, Change of Employer, Amended), but its own documentation still describes counts of "initial" and "continuing" approvals. Filed uses initial = New Employment + New Concurrent and continuing = the other four. This is the split USCIS used when the hub published two columns, and it puts F-1 to H-1B changes of status under initial. New Employment is also stored and shown on its own.
 
 **D9. USCIS tax ID.** The hub gives the last four digits of the employer's tax ID. The brief joins on normalized name plus state; the last four FEIN digits are used as an extra check to break ties when one normalized name and state matches several LCA employers.
