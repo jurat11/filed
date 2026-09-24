@@ -20,5 +20,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/sources`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
+    env: { REVALIDATE_SECRET: process.env.REVALIDATE_SECRET ?? "e2e-secret" },
   },
 });

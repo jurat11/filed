@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { int } from "@/lib/format";
 import { meta, sources } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+// Rebuilt when `filed load` purges the data cache; one day otherwise.
+export const revalidate = 86400;
 export const metadata: Metadata = { title: "Sources and method" };
 
 const REPO = "https://github.com/jurat11/filed/blob/main";
 
-const d = (v: Date | null) => (v ? new Date(v).toISOString().slice(0, 10) : "");
+const d = (v: string | Date | null) => (v ? new Date(v).toISOString().slice(0, 10) : "");
 
 export default async function Sources() {
   const [files, m] = await Promise.all([sources(), meta()]);

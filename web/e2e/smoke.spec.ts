@@ -58,16 +58,16 @@ test("explore survives hostile parameters", async ({ page }) => {
   expect(await page.locator("tbody tr").count()).toBeGreaterThan(0);
 });
 
-test("explore export is a CSV of the same employers", async ({ page, request }) => {
+test("explore export is a CSV of every matching employer", async ({ page, request }) => {
   const q = "role=Software+engineering&sort=name";
   await page.goto(`/explore?${q}`);
-  const shown = await page.locator("tbody tr td:first-child a").allInnerTexts();
+  const total = Number((await page.getByText(/^Employers 1 to \d+ of [\d,]+$/).innerText()).split(" of ")[1].replace(/,/g, ""));
   const res = await request.get(`/explore/export?${q}`);
   expect(res.status()).toBe(200);
   expect(res.headers()["content-type"]).toContain("text/csv");
   const lines = (await res.text()).trim().split("\n");
   expect(lines[0]).toMatch(/^employer,state,certified_lcas,mean_offered_wage/);
-  expect(lines.length - 1).toBe(shown.length);
+  expect(lines.length - 1).toBe(total);
 });
 
 test("sources lists the loaded files", async ({ page }) => {
