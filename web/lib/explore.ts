@@ -36,6 +36,7 @@ export type ExploreParams = {
   fy: string; // a loaded fiscal year or "all"
   min: number;
   hideDependent: boolean;
+  hideCapExempt: boolean;
   sort: string;
   page: number; // 1-based
 };
@@ -80,6 +81,7 @@ export function parseExplore(sp: SP, years?: number[]): ExploreParams {
     fy: fyOk ? fy : "all",
     min: intParam(sp.min, 0, MAX_MIN, 0),
     hideDependent: one(sp.hide_dependent) === "1",
+    hideCapExempt: one(sp.hide_cap_exempt) === "1",
     sort: has(SORTS, sort) ? sort : "certified",
     page: intParam(sp.page, 1, 100_000, 1),
   };
@@ -95,6 +97,7 @@ export function exploreQuery(p: ExploreParams, patch: Partial<ExploreParams> = {
   if (q.fy !== "all") u.set("fy", q.fy);
   if (q.min) u.set("min", String(q.min));
   if (q.hideDependent) u.set("hide_dependent", "1");
+  if (q.hideCapExempt) u.set("hide_cap_exempt", "1");
   if (q.sort !== "certified") u.set("sort", q.sort);
   if (q.page > 1) u.set("page", String(q.page));
   return u.toString();
@@ -117,18 +120,20 @@ export function exploreSql(p: ExploreParams, limit: number, offset = 0) {
   if (p.state.length) where.push(`c.worksite_state = ANY(${bind(p.state)})`);
   if (p.level.length) where.push(`c.wage_level = ANY(${bind(p.level)})`);
   if (p.hideDependent) where.push("e.h1b_dependent_latest IS NOT TRUE");
+  if (p.hideCapExempt) where.push("e.cap_exempt_rule IS NULL");
   const min = bind(p.min);
   const lim = bind(Math.max(0, Math.min(limit, EXPORT_LIMIT)));
   const off = bind(Math.max(0, offset));
   const text = `
     SELECT e.slug, e.display_name, e.state, e.uscis_initial_total, e.h1b_dependent_latest,
+           e.cap_exempt_rule,
            sum(c.certified)::int AS certified, sum(c.wage_rows)::int AS wage_rows,
            round(sum(c.wage_sum) / nullif(sum(c.wage_rows), 0)) AS avg_wage,
            count(*) OVER ()::int AS total_rows
       FROM filed.lca_cube c JOIN filed.employers e USING (employer_id)
      ${where.length ? "WHERE " + where.join(" AND ") : ""}
      GROUP BY e.employer_id, e.slug, e.display_name, e.state, e.uscis_initial_total,
-              e.h1b_dependent_latest
+              e.h1b_dependent_latest, e.cap_exempt_rule
     HAVING sum(c.certified) >= ${min}
      ORDER BY ${SORTS[p.sort]}, e.display_name, e.slug
      LIMIT ${lim} OFFSET ${off}`;
@@ -144,6 +149,7 @@ export type ExploreRow = {
   avg_wage: number | null;
   uscis_initial_total: number | null;
   h1b_dependent_latest: boolean | null;
+  cap_exempt_rule: string | null;
   total_rows: number;
 };
 
@@ -158,6 +164,7 @@ export function csvHeader(uscisYears: number[]): string[] {
     "wage_rows",
     `uscis_initial_approvals_${fy}`,
     "h1b_dependent_latest",
+    "likely_cap_exempt_rule",
     "url",
   ];
 }
@@ -180,6 +187,7 @@ export function toCsv(rows: ExploreRow[], uscisYears: number[]): string {
       r.wage_rows,
       r.uscis_initial_total,
       r.h1b_dependent_latest,
+      r.cap_exempt_rule,
       `/employer/${r.slug}`,
     ]
       .map(csvCell)

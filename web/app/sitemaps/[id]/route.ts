@@ -1,4 +1,4 @@
-import { employerSlugs, meta } from "@/lib/queries";
+import { employerSlugs, groupSlugs, meta } from "@/lib/queries";
 import { SITE_URL, xmlEscape } from "@/lib/site";
 
 export const revalidate = 86400;
@@ -8,7 +8,7 @@ const PAGES = ["/", "/explore", "/sources"];
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let paths: string[];
-  if (id === "pages") paths = PAGES;
+  if (id === "pages") paths = [...PAGES, ...(await groupSlugs()).map((g) => `/group/${g.group_slug}`)];
   else if (/^\d{1,4}$/.test(id)) paths = (await employerSlugs(Number(id))).map((r) => `/employer/${r.slug}`);
   else return new Response("Not found", { status: 404 });
   if (paths.length === 0) return new Response("Not found", { status: 404 });

@@ -1,3 +1,4 @@
+import { Scroll } from "@/components/Scroll";
 import type { Metadata } from "next";
 import { int } from "@/lib/format";
 import { meta, sources } from "@/lib/queries";
@@ -25,16 +26,16 @@ export default async function Sources() {
       </p>
 
       <h2 className="mt-8 text-lg font-semibold">Files loaded</h2>
-      <div className="mt-3 overflow-x-auto">
+      <Scroll label="Files loaded" className="mt-3">
         <table className="num w-full min-w-[720px] text-sm">
           <thead className="text-left text-muted">
             <tr className="border-b border-line">
-              <th className="py-2 font-normal">File</th>
-              <th className="font-normal">Decisions covered</th>
-              <th className="text-right font-normal">Raw rows</th>
-              <th className="text-right font-normal">Loaded</th>
-              <th className="pl-4 font-normal">Downloaded</th>
-              <th className="pl-4 font-normal">SHA-256</th>
+              <th scope="col" className="py-2 font-normal">File</th>
+              <th scope="col" className="font-normal">Decisions covered</th>
+              <th scope="col" className="text-right font-normal">Raw rows</th>
+              <th scope="col" className="text-right font-normal">Loaded</th>
+              <th scope="col" className="pl-4 font-normal">Downloaded</th>
+              <th scope="col" className="pl-4 font-normal">SHA-256</th>
             </tr>
           </thead>
           <tbody>
@@ -54,7 +55,7 @@ export default async function Sources() {
             ))}
           </tbody>
         </table>
-      </div>
+      </Scroll>
       <p className="mt-2 text-sm text-muted">
         Column mappings were written from the DOL record layouts:{" "}
         {layouts.map((f, i) => (
@@ -112,6 +113,25 @@ export default async function Sources() {
             records are matched by normalized name, state and the last four tax ID digits.
           </dd>
         </div>
+        <div id="cap-exempt">
+          <dt className="font-medium">Likely cap-exempt</dt>
+          <dd className="text-muted">
+            A rule, not a USCIS determination. An employer is flagged when the IRS lists its tax ID
+            as a 501(c)(3) in higher education or research (when that IRS file is loaded), or when
+            most of its LCAs give NAICS 611310 (colleges and universities), or when its name
+            contains University, College, Institute of Technology, School of Medicine or Medical
+            School and its NAICS code is in education or health care. The last two rules do not
+            check nonprofit status, so a for-profit college can match.
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium">Related entities</dt>
+          <dd className="text-muted">
+            Employers with different FEINs are never merged. Two views connect them: legal entities
+            that share a normalized name, and groups from a small parent map that a person reviewed
+            against public evidence. Both show each employer&rsquo;s own figures.
+          </dd>
+        </div>
         <div>
           <dt className="font-medium">Entry-level signal</dt>
           <dd className="text-muted">
@@ -130,7 +150,10 @@ export default async function Sources() {
           Matching by FEIN and name can split one company across legal entities (Amazon.com
           Services and Amazon Web Services are separate employers) or miss a USCIS record.
         </li>
-        <li>Cap-exempt employers (universities, some nonprofits) are not flagged separately.</li>
+        <li>
+          &ldquo;Likely cap-exempt&rdquo; is a rule applied to NAICS codes and names (and IRS
+          records when loaded), not a USCIS determination.
+        </li>
         <li>
           Internships usually run on CPT and first jobs on OPT, which these files do not cover.
         </li>

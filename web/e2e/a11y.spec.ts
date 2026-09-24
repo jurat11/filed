@@ -9,6 +9,8 @@ const PAGES = [
   "/explore",
   "/explore?role=Finance&state=NY",
   "/sources",
+  "/employer/harvard-university",
+  "/group/amazon",
 ];
 
 for (const scheme of ["light", "dark"] as const) {

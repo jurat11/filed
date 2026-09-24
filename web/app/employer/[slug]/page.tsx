@@ -1,9 +1,11 @@
+import { Scroll } from "@/components/Scroll";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StackedBar } from "@/components/Bar";
 import { SourceTag } from "@/components/SourceTag";
 import { TrendLine } from "@/components/TrendLine";
+import { CAP_EXEMPT_RULES } from "@/lib/capExempt";
 import { int, MISSING, n, pct, usd } from "@/lib/format";
 import { employer, lcaYears, ROLE_GROUPS, uscisYears } from "@/lib/queries";
 
@@ -57,7 +59,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
     lcaYears(),
   ]);
   if (!d) notFound();
-  const { e, years, uscis, roles, top, aliases, signal, links, similar } = d;
+  const { e, years, uscis, roles, top, aliases, signal, links, similar, group } = d;
   const uLabel = uYears.map((y) => `FY${y}`).join(", ") || "none";
   const latest2 = years.slice(-2) as Row[];
   const latest = years.at(-1) as Row | undefined;
@@ -83,12 +85,25 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
             H-1B dependent (as reported on its latest LCAs)
           </span>
         )}
+        {e.cap_exempt_rule && (
+          <span className="rounded bg-accent-soft px-2 py-0.5">Likely cap-exempt</span>
+        )}
         {e.willful_violator_ever && (
           <span className="rounded bg-accent-soft px-2 py-0.5 text-warn">
             Reported as a willful violator on an LCA
           </span>
         )}
       </div>
+
+      {e.cap_exempt_rule && (
+        <p className="mt-3 max-w-2xl text-sm text-muted">
+          Likely cap-exempt because {CAP_EXEMPT_RULES[e.cap_exempt_rule] ?? e.cap_exempt_rule}. Cap-exempt
+          employers (universities, their affiliated nonprofits, nonprofit and government research
+          organizations) hire outside the H-1B lottery. This is a rule applied to the data, not a USCIS
+          determination; a for-profit college can match it.{" "}
+          <Link href="/sources#cap-exempt" className="underline">The rule</Link>
+        </p>
+      )}
 
       {e.has_lca && latest && (
         <>
@@ -101,17 +116,17 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 partial: (n(y.quarter) ?? 4) < 4,
               }))}
             />
-            <div className="mt-4 overflow-x-auto">
+            <Scroll label="LCAs by fiscal year" className="mt-4">
               <table className="num w-full min-w-[640px] text-sm">
                 <thead className="text-left text-muted">
                   <tr className="border-b border-line">
-                    <th className="py-2 font-normal">Fiscal year</th>
-                    <th className="text-right font-normal">Filed</th>
-                    <th className="text-right font-normal">Certified</th>
-                    <th className="text-right font-normal">Withdrawn</th>
-                    <th className="text-right font-normal">Denied</th>
-                    <th className="text-right font-normal">Certified workers</th>
-                    <th className="pl-4 font-normal">Source</th>
+                    <th scope="col" className="py-2 font-normal">Fiscal year</th>
+                    <th scope="col" className="text-right font-normal">Filed</th>
+                    <th scope="col" className="text-right font-normal">Certified</th>
+                    <th scope="col" className="text-right font-normal">Withdrawn</th>
+                    <th scope="col" className="text-right font-normal">Denied</th>
+                    <th scope="col" className="text-right font-normal">Certified workers</th>
+                    <th scope="col" className="pl-4 font-normal">Source</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -130,7 +145,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                   ))}
                 </tbody>
               </table>
-            </div>
+            </Scroll>
             <p className="mt-2 text-xs text-muted">
               FY2026 covers October 1, 2025 to June 30, 2026 (the latest DOL release). Withdrawn
               includes certified-then-withdrawn.
@@ -203,19 +218,21 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
           <Section title={`Offered wage by role group, ${lastSrc}`}>
             <p className="mb-3 text-sm text-muted">
               Certified, full-time LCAs with a valid wage, per fiscal year. Percentiles are not
-              combined across years.
+              combined across years. The prevailing wage is the wage DOL requires for the
+              occupation, area and level on each LCA, annualized the same way.
             </p>
-            <div className="overflow-x-auto">
+            <Scroll label="Offered wage by role group">
               <table className="num w-full min-w-[640px] text-sm">
                 <thead className="text-left text-muted">
                   <tr className="border-b border-line">
-                    <th className="py-2 font-normal">Role group</th>
-                    <th className="font-normal">Year</th>
-                    <th className="text-right font-normal">Certified</th>
-                    <th className="text-right font-normal">25th pct</th>
-                    <th className="text-right font-normal">Median</th>
-                    <th className="text-right font-normal">75th pct</th>
-                    <th className="pl-4 font-normal">Source</th>
+                    <th scope="col" className="py-2 font-normal">Role group</th>
+                    <th scope="col" className="font-normal">Year</th>
+                    <th scope="col" className="text-right font-normal">Certified</th>
+                    <th scope="col" className="text-right font-normal">25th pct</th>
+                    <th scope="col" className="text-right font-normal">Median</th>
+                    <th scope="col" className="text-right font-normal">75th pct</th>
+                    <th scope="col" className="text-right font-normal">Prevailing wage, median</th>
+                    <th scope="col" className="pl-4 font-normal">Source</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -232,6 +249,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                             <td className="text-right">{usd(r.wage_p25)}</td>
                             <td className="text-right font-semibold">{usd(r.wage_median)}</td>
                             <td className="text-right">{usd(r.wage_p75)}</td>
+                            <td className="text-right text-muted">{usd(r.pw_median)}</td>
                             <td className="pl-4">
                               <SourceTag file={String(y?.source_file ?? "")} rows={r.wage_rows} />
                             </td>
@@ -241,7 +259,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                   )}
                 </tbody>
               </table>
-            </div>
+            </Scroll>
           </Section>
 
           {sig && (
@@ -313,17 +331,17 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
             No USCIS Data Hub record matched this employer. USCIS years loaded: {uLabel}.
           </p>
         ) : (
-          <div className="overflow-x-auto">
+          <Scroll label="USCIS petition decisions">
           <table className="num w-full min-w-[640px] text-sm">
             <thead className="text-left text-muted">
               <tr className="border-b border-line">
-                <th className="py-2 font-normal">Fiscal year</th>
-                <th className="text-right font-normal">Initial approved</th>
-                <th className="text-right font-normal">of which new employment</th>
-                <th className="text-right font-normal">Initial denied</th>
-                <th className="text-right font-normal">Continuing approved</th>
-                <th className="text-right font-normal">Continuing denied</th>
-                <th className="pl-4 font-normal">Source</th>
+                <th scope="col" className="py-2 font-normal">Fiscal year</th>
+                <th scope="col" className="text-right font-normal">Initial approved</th>
+                <th scope="col" className="text-right font-normal">of which new employment</th>
+                <th scope="col" className="text-right font-normal">Initial denied</th>
+                <th scope="col" className="text-right font-normal">Continuing approved</th>
+                <th scope="col" className="text-right font-normal">Continuing denied</th>
+                <th scope="col" className="pl-4 font-normal">Source</th>
               </tr>
             </thead>
             <tbody>
@@ -342,7 +360,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
               ))}
             </tbody>
           </table>
-          </div>
+          </Scroll>
         )}
         {uscis.length > 0 && (
           <p className="mt-2 text-xs text-muted">
@@ -371,6 +389,30 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 </span>
               </li>
             ))}
+          </ul>
+        </Section>
+      )}
+
+      {group.length > 0 && (
+        <Section title="Related entities (reviewed)">
+          <p className="mb-3 text-sm text-muted">
+            A person reviewed evidence that these employers belong to {group[0].group_name}. Each
+            is a separate FEIN with its own figures.{" "}
+            <Link href={`/group/${group[0].group_slug}`} className="underline">
+              See them side by side
+            </Link>
+          </p>
+          <ul className="space-y-1 text-sm">
+            {group
+              .filter((m) => m.slug !== e.slug)
+              .map((m) => (
+                <li key={m.slug} className="flex flex-wrap justify-between gap-x-4">
+                  <Link href={`/employer/${m.slug}`} className="underline">{m.display_name}</Link>
+                  <span className="num text-muted">
+                    FEIN {m.fein}, {int(m.certified_total)} certified LCAs
+                  </span>
+                </li>
+              ))}
           </ul>
         </Section>
       )}

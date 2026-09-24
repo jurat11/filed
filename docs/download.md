@@ -43,3 +43,11 @@ These releases are not cumulative (docs/decisions.md D1), so Q1 to Q3 are needed
 ## USCIS FY2023 (downloadable directly)
 
 https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv
+
+## IRS Exempt Organizations (optional) -> data/raw/irs/
+
+Confirms 501(c)(3) status for the "likely cap-exempt" flag (docs/decisions.md D30).
+Page: https://www.irs.gov/charities-non-profits/exempt-organizations-business-master-file-extract-eo-bmf
+
+Download the regional CSV extracts (`eo1.csv` to `eo4.csv`) into `data/raw/irs/`. Any
+`eo*.csv` there is read; without them the flag uses the NAICS and name rules only.

@@ -87,7 +87,8 @@ Neon. It refuses a Neon URL. See docs/decisions.md D21.
 - An LCA is filed before a petition. It shows that an employer intended to hire into a role, not that a visa was approved.
 - USCIS data lags. The latest USCIS year loaded is FY2023.
 - Employers are matched by federal tax ID (FEIN) and name, so one company can be split across legal entities (Amazon.com Services and Amazon Web Services are separate employers) and a few USCIS records fail to join. FY2023 LCA files omit the FEIN, so FY2023 cases are linked by name and state (94.4% linked).
-- Cap-exempt employers (universities, some nonprofits) are not flagged separately.
+- "Likely cap-exempt" (universities and research nonprofits, which hire outside the lottery) is a stated rule on NAICS codes and names, and on IRS records when that file is loaded; it is not a USCIS determination ([decisions D30](docs/decisions.md)).
+- Legal entities are grouped above FEIN only through a small hand-reviewed parent map (`data/parents.csv`), shown apart from the FEIN-level figures.
 - Internships usually run on CPT and first jobs on OPT, which these files do not cover.
 
 Not legal advice. Past filings do not guarantee future sponsorship.

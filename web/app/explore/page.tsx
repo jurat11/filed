@@ -1,3 +1,4 @@
+import { Scroll } from "@/components/Scroll";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -34,6 +35,7 @@ function chips(p: ExploreParams, fyLabel: (fy: string) => string) {
   if (p.fy !== "all") out.push({ label: fyLabel(p.fy), href: href(p, { fy: "all" }) });
   if (p.min) out.push({ label: `At least ${int(p.min)} certified`, href: href(p, { min: 0 }) });
   if (p.hideDependent) out.push({ label: "H-1B dependent hidden", href: href(p, { hideDependent: false }) });
+  if (p.hideCapExempt) out.push({ label: "Likely cap-exempt hidden", href: href(p, { hideCapExempt: false }) });
   return out;
 }
 
@@ -117,6 +119,10 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
             <input type="checkbox" name="hide_dependent" value="1" defaultChecked={p.hideDependent} />
             Hide H-1B dependent employers
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="hide_cap_exempt" value="1" defaultChecked={p.hideCapExempt} />
+            Hide likely cap-exempt employers
+          </label>
           {p.sort !== "certified" && <input type="hidden" name="sort" value={p.sort} />}
           <div className="flex flex-wrap gap-2">
             <button className="rounded-md bg-accent px-4 py-2 font-medium text-white dark:text-black">Apply</button>
@@ -142,7 +148,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
               {c.label} <span aria-hidden="true">×</span>
             </Link>
           ))}
-          <Link href={href(p, { role: [], state: [], level: [], fy: "all", min: 0, hideDependent: false })} className="text-muted underline">
+          <Link href={href(p, { role: [], state: [], level: [], fy: "all", min: 0, hideDependent: false, hideCapExempt: false })} className="text-muted underline">
             Clear all
           </Link>
         </div>
@@ -152,7 +158,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         {total ? `Employers ${int(first)} to ${int(first + rows.length - 1)} of ${int(total)}` : ""}
       </p>
 
-      <div className="mt-2 overflow-x-auto">
+      <Scroll label="Employers" className="mt-2">
         <table className="num w-full min-w-[640px] text-sm">
           <caption className="sr-only">Employers matching the filters, sorted by {p.sort}</caption>
           <thead className="text-left text-muted">
@@ -183,6 +189,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                   <Link href={`/employer/${r.slug}`} className="hover:underline">{r.display_name}</Link>
                   <span className="ml-2 text-xs text-muted">{r.state}</span>
                   {r.h1b_dependent_latest && <span className="ml-2 text-xs text-muted">dependent</span>}
+                  {r.cap_exempt_rule && <span className="ml-2 text-xs text-muted">likely cap-exempt</span>}
                 </td>
                 <td className="text-right">{int(r.certified)}</td>
                 <td className="text-right">{usd(r.avg_wage)}</td>
@@ -192,7 +199,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           </tbody>
         </table>
         {rows.length === 0 && <p className="mt-4 text-muted">No employers match these filters.</p>}
-      </div>
+      </Scroll>
 
       {pages > 1 && (
         <nav aria-label="Pages" className="mt-4 flex items-center gap-3 text-sm">
