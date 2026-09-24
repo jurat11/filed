@@ -22,7 +22,18 @@ https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Worksite_Record_Layout_
 
 ## USCIS -> data/raw/uscis/
 Page: https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub
-Later years: Crosstab View in the hub, then Download to Excel as CSV (not loaded in this build).
+
+FY2024 and later are only in the hub's viewer. For each fiscal year:
+
+1. Open the hub, choose the table (employer) view and filter Fiscal Year to one year.
+2. Download > Crosstab > CSV (or Download > Data > full data, CSV). Either works:
+   `etl/uscis_files.py` reads the six-category layout, the long `Measure Names` layout,
+   UTF-16 or UTF-8, tabs or commas (docs/decisions.md D19).
+3. Save it as `data/raw/uscis/uscis_hub_FY{year}.csv`, for example `uscis_hub_FY2024.csv`.
+4. Run `uv run filed uscis && uv run filed aggregate` and check `eval/join.md`.
+
+If the download holds several fiscal years, filter again: a file whose Fiscal Year column
+disagrees with its name is refused.
 
 ## Also required: quarterly files FY2023 to FY2025
 

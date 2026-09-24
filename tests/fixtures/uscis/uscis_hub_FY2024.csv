@@ -1,0 +1,4 @@
+Fiscal Year,Employer (Petitioner) Name,Tax ID,Industry (NAICS) Code,Petitioner City,Petitioner State,Petitioner Zip Code,New Employment Approval,New Employment Denial,New Concurrent Approval,New Concurrent Denial,Continuation Approval,Continuation Denial,Change with Same Employer Approval,Change with Same Employer Denial,Change of Employer Approval,Change of Employer Denial,Amended Approval,Amended Denial
+2024,GOOGLE LLC,3581,54 - Professional Scientific and Technical Services,MOUNTAIN VIEW,CA,94043,20,1,2,0,50,1,10,0,15,0,5,0
+2024,MICROSOFT CORPORATION,4442,51 - Information,REDMOND,WA,98052,18,0,,,40,0,8,0,12,1,4,0
+2024,SYNTHETIC TEST UNIVERSITY,1234,61 - Educational Services,BOSTON,MA,02115,,,,,,,,,,,,
