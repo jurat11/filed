@@ -83,7 +83,7 @@ export type ExploreParams = {
 const SORTS: Record<string, string> = {
   certified: "certified DESC",
   wage: "avg_wage DESC NULLS LAST",
-  uscis: "uscis_initial_total DESC",
+  uscis: "uscis_initial_total DESC NULLS LAST",
   name: "display_name ASC",
 };
 
@@ -121,10 +121,12 @@ export async function explore(p: ExploreParams, limit = 200) {
     certified: number;
     wage_rows: number;
     avg_wage: number | null;
-    uscis_initial_total: number;
+    uscis_initial_total: number | null;
     h1b_dependent_latest: boolean | null;
   }>(
-    `SELECT e.slug, e.display_name, e.state, e.uscis_initial_total, e.h1b_dependent_latest,
+    `SELECT e.slug, e.display_name, e.state,
+            CASE WHEN e.has_uscis THEN e.uscis_initial_total END AS uscis_initial_total,
+            e.h1b_dependent_latest,
             sum(c.certified)::int AS certified, sum(c.wage_rows)::int AS wage_rows,
             round(sum(c.wage_sum) / nullif(sum(c.wage_rows), 0)) AS avg_wage
        FROM filed.lca_cube c JOIN filed.employers e USING (employer_id)

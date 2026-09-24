@@ -46,7 +46,7 @@ The brief says the worksites file starts in FY2026, but dol.gov publishes an `LC
 
 **D5. Extra legal suffixes.** Besides the spec's list (INC, LLC, LLP, CORP, CORPORATION, CO, LTD, LP, PLLC, THE), the normalizer also removes INCORPORATED, LIMITED, COMPANY and PC. These are long forms or near forms of listed suffixes ("FORD MOTOR COMPANY" and "FORD MOTOR CO" must agree). Suffixes are removed only from the end of the name, repeatedly ("CO LTD"), and "THE" only from the start, so words in the middle of a name are never touched.
 
-**D6. "&" becomes "AND"; periods and apostrophes join.** Stripping "&" as plain punctuation would make "AT&T" into "ATT" but "AT & T" into "AT T". Turning "&" into " AND " makes every spelling agree. Periods and apostrophes are deleted without a space so "L.L.C." becomes "LLC" and "MACY'S" becomes "MACYS".
+**D6. Connectors dropped; periods and apostrophes join.** "&", "+" and the word "AND" all become a space, so "AT&T", "AT & T" and "AT and T" agree. A first version turned "&" into "AND"; that failed to match USCIS, which writes "ERNST YOUNG US LLP" for Ernst & Young U.S. LLP. Periods and apostrophes are deleted without a space so "L.L.C." becomes "LLC" and "MACY'S" becomes "MACYS".
 
 **D7. DBA.** Text after "DBA" or "D/B/A" in a name is cut off. The legal name comes first, and the trade name is in its own column.
 
@@ -60,4 +60,4 @@ The brief says the worksites file starts in FY2026, but dol.gov publishes an `LC
 
 ## Database
 
-**D10. Neon holds aggregates, not every case row.** The Neon project is on the free plan, with a 512 MB limit per branch. About 2.5 to 3 million canonical LCA rows would not fit with indexes. The canonical table is kept in DuckDB (`data/work/filed.duckdb`) and exported as Parquet. Neon gets the aggregate tables, including a cube of certified counts by employer, fiscal year, role group, worksite state and wage level, which is what `/explore` filters. The reconcile script compares the Neon aggregate counts with counts computed straight from the raw files.
+**D10. Neon holds aggregates, not every case row.** The Neon project is on the free plan, with a 512 MB limit per branch. About 2.5 to 3 million canonical LCA rows would not fit with indexes. The canonical table is kept in DuckDB (`data/work/filed.duckdb`) and exported as Parquet. Neon gets the aggregate tables, including a cube of certified counts by employer, fiscal year, role group, worksite state and wage level, which is what `/explore` filters. To leave room for the schema swap (old and new copies exist together until the swap commits), only what the site shows is stored: top titles and states for each employer's latest fiscal year, role groups for the last two years, and one entry-level role selection. The database is about 229 MB, so two copies fit in 512 MB. The reconcile script compares the Neon aggregate counts with counts computed straight from the raw files.

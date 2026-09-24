@@ -6,7 +6,7 @@ Filed is a search tool built only from U.S. government records: every Labor Cond
 
 Every figure on the site carries a source tag (for example "DOL LCA FY2025 Q1-Q4, 728 rows") that links to the file it came from.
 
-Live site: https://filed.vercel.app
+Live site: https://filed-gray.vercel.app
 
 ## Numbers
 
@@ -14,9 +14,9 @@ Live site: https://filed.vercel.app
 | --- | --- | --- |
 | Raw rows loaded vs rows in the source files | 100% on all 17 DOL files and the USCIS file | `data/manifest.json` |
 | Reconcile: certified, withdrawn, denied and filed counts per year, recomputed from the raw xlsx with pandas | **0 differences** across FY2023 to FY2026 | [eval/reconcile.md](eval/reconcile.md) |
-| Name normalizer on 60 hand-labeled pairs | precision 87.9%, recall 82.9% | [eval/employers.md](eval/employers.md) |
+| Name normalizer on 60 hand-labeled pairs | precision 88.2%, recall 85.7% | [eval/employers.md](eval/employers.md) |
 | Full resolver (FEIN first) on the same pairs | precision 100%, recall 100% | [eval/employers.md](eval/employers.md) |
-| USCIS to LCA join, FY2023 | 74.0% of USCIS employers, 85.9% of approvals | [eval/join.md](eval/join.md) |
+| USCIS to LCA join, FY2023 | 74.8% of USCIS employers, 87.3% of approvals | [eval/join.md](eval/join.md) |
 | Wages excluded as unit errors | 4,570 of 2,136,934 (0.21%) | [eval/wages.md](eval/wages.md) |
 
 ## Data sources

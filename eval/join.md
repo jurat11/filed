@@ -10,16 +10,16 @@ used to confirm a single candidate and to choose among several.
 
 | | Matched | Total | Rate |
 | --- | ---: | ---: | ---: |
-| USCIS employers | 22,767 | 30,775 | 74.0% |
-| Approvals (initial + continuing) | 152,071 | 176,949 | 85.9% |
+| USCIS employers | 23,011 | 30,775 | 74.8% |
+| Approvals (initial + continuing) | 154,389 | 176,949 | 87.3% |
 
 | Outcome | USCIS employers | Approvals |
 | --- | ---: | ---: |
-| name_state_tax4 | 20,126 | 136,728 |
-| no_name_state_match | 7,662 | 24,132 |
-| name_state | 2,300 | 5,246 |
-| several_candidates | 381 | 10,312 |
-| rejected_tax4_differs | 306 | 531 |
+| name_state_tax4 | 20,339 | 138,680 |
+| no_name_state_match | 7,410 | 21,802 |
+| name_state | 2,322 | 5,271 |
+| several_candidates | 392 | 10,655 |
+| rejected_tax4_differs | 312 | 541 |
 
 1 USCIS rows have no employer name (1 approvals) and cannot be joined.
 Unmatched USCIS employers still get a page, labeled "no LCA match".

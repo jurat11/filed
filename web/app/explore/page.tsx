@@ -121,7 +121,8 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
         {rows.length === 200 && <p className="mt-2 text-xs text-muted">Showing the first 200. The CSV has up to 5,000.</p>}
       </div>
       <p className="mt-4 text-xs text-muted">
-        Source: DOL LCA disclosure files, certified cases only; mean wage over certified full-time
+        Source: DOL LCA disclosure files, certified cases only; a dash in the USCIS column means no
+        USCIS FY2023 record matched the employer; mean wage over certified full-time
         LCAs with a valid annual wage. <Link href="/sources" className="underline">Sources</Link>
       </p>
     </div>

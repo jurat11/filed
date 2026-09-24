@@ -3,12 +3,13 @@
 Steps, in order:
 1. Uppercase and fold accents to ASCII.
 2. Cut anything after a "DBA" / "D/B/A" marker (the legal name comes first).
-3. Replace "&" and "+" with " AND ", so "AT&T" and "AT & T" agree.
+3. Drop connectors: "&", "+" and the word "AND" all become a space, so "AT&T",
+   "AT & T" and "AT and T" agree, and "ERNST YOUNG US LLP" (as USCIS writes it) matches
+   "Ernst & Young U.S. LLP".
 4. Delete periods and apostrophes (so "L.L.C." -> "LLC", "MACY'S" -> "MACYS"),
    and turn every other non-alphanumeric character into a space.
 5. Collapse spaces.
-6. Remove legal-form tokens from the end (repeatedly, so "CO LTD" goes too), then a
-   dangling "AND" left behind ("JPMORGAN CHASE & CO" -> "JPMORGAN CHASE"), and a
+6. Remove legal-form tokens from the end (repeatedly, so "CO LTD" goes too) and a
    leading "THE".
 
 The suffix list is the one in the spec plus a few long forms of the same words
@@ -39,14 +40,12 @@ def normalize_name(name: str | None) -> str:
     s = unicodedata.normalize("NFKD", str(name)).encode("ascii", "ignore").decode()
     s = s.upper()
     s = _DBA_RE.sub("", s)
-    s = s.replace("&", " AND ").replace("+", " AND ")
+    s = s.replace("&", " ").replace("+", " ")
     s = _JOIN_RE.sub("", s)
     s = _OTHER_RE.sub(" ", s)
-    tokens = _SPACE_RE.sub(" ", s).strip().split(" ")
+    tokens = [t for t in _SPACE_RE.sub(" ", s).strip().split(" ") if t != "AND"] or ["AND"]
     while len(tokens) > 1 and tokens[-1] in SUFFIXES:
         tokens.pop()
-        if len(tokens) > 1 and tokens[-1] == "AND":
-            tokens.pop()
     if len(tokens) > 1 and tokens[0] == "THE":
         tokens.pop(0)
     return " ".join(t for t in tokens if t)

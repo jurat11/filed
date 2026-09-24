@@ -10,7 +10,7 @@ A positive is a prediction that the two names are the same employer.
 
 | Method | TP | FP | FN | TN | Precision | Recall |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Normalized name equal | 29 | 4 | 6 | 21 | 87.9% | 82.9% |
+| Normalized name equal | 30 | 4 | 5 | 21 | 88.2% | 85.7% |
 | Full resolver (FEIN first) | 35 | 0 | 0 | 25 | 100.0% | 100.0% |
 
 The normalizer alone merges legal entities that differ only in legal form (for
@@ -21,12 +21,11 @@ IBM Corporation and International Business Machines Corporation.
 Normalizer errors:
 
 - missed: `JP Morgan Chase & Co.` / `JPMorgan Chase & Co.` (`JP MORGAN CHASE` vs `JPMORGAN CHASE`)
-- missed: `JPMorgan Chase & Co.` / `JPMorgan & Chase Co.` (`JPMORGAN CHASE` vs `JPMORGAN AND CHASE`)
 - missed: `IBM Corporation` / `INTERNATIONAL BUSINESS MACHINES CORPORATION` (`IBM` vs `INTERNATIONAL BUSINESS MACHINES`)
-- missed: `LTIMindtree Limited` / `Larsen & Toubro Infotech Limited` (`LTIMINDTREE` vs `LARSEN AND TOUBRO INFOTECH`)
+- missed: `LTIMindtree Limited` / `Larsen & Toubro Infotech Limited` (`LTIMINDTREE` vs `LARSEN TOUBRO INFOTECH`)
 - missed: `TATA CONSULTANCY SERVICES LIMITED` / `TATA CONSULTANCY SERVICESLIMITED` (`TATA CONSULTANCY SERVICES` vs `TATA CONSULTANCY SERVICESLIMITED`)
 - missed: `HCL AMERICA INC` / `HCL AMERIC` (`HCL AMERICA` vs `HCL AMERIC`)
-- false merge: `L&T Technology Services Limited` / `L&T TECHNOLOGY SERVICES LLC` (`L AND T TECHNOLOGY SERVICES` vs `L AND T TECHNOLOGY SERVICES`)
+- false merge: `L&T Technology Services Limited` / `L&T TECHNOLOGY SERVICES LLC` (`L T TECHNOLOGY SERVICES` vs `L T TECHNOLOGY SERVICES`)
 - false merge: `Barclays Services Corp.` / `Barclays Services LLC` (`BARCLAYS SERVICES` vs `BARCLAYS SERVICES`)
 - false merge: `PERSISTENT SYSTEMS, INC.` / `PERSISTENT SYSTEMS LIMITED` (`PERSISTENT SYSTEMS` vs `PERSISTENT SYSTEMS`)
 - false merge: `ASML US, LP` / `ASML US, LLC` (`ASML US` vs `ASML US`)
@@ -38,20 +37,20 @@ Resolver errors:
 ## Resolution
 
 - Cases: 2,136,934
-- Employers: 126,969 (111,458 by FEIN, 15,511 by name and state)
-- Distinct spellings kept as aliases: 160,126
-- Possible links (different FEINs, same normalized name, not merged): 2,059
+- Employers: 126,956 (111,458 by FEIN, 15,498 by name and state)
+- Distinct spellings kept as aliases: 160,129
+- Possible links (different FEINs, same normalized name, not merged): 2,063
 
 Cases by how their employer was found:
 
 | Method | All years | FY2023 |
 | --- | ---: | ---: |
 | fein | 1,593,246 | 0 |
-| name_state_to_fein | 483,174 | 483,145 |
+| name_state_to_fein | 483,159 | 483,130 |
 | name_state_to_dominant_fein | 26,863 | 26,844 |
-| name_state | 24,828 | 24,772 |
-| name_state_ambiguous | 5,465 | 5,463 |
-| name_to_fein | 3,358 | 3,356 |
+| name_state | 24,802 | 24,746 |
+| name_state_ambiguous | 5,505 | 5,503 |
+| name_to_fein | 3,359 | 3,357 |
 
 FY2023 files carry no FEIN, so FY2023 cases are matched to a FEIN employer by
 normalized name and employer state (see docs/decisions.md D11).
@@ -64,8 +63,8 @@ normalized name and employer state (see docs/decisions.md D11).
 - AMAZON.COM SERVICES LLC (5,713)
 - Zappos.com LLC (2)
 - Amazon Fulfillment Center (BF14) (2)
-- Amazon Development Center U.S., Inc (1)
 - Zappos (1)
+- Amazon Development Center U.S., Inc (1)
 - Amazon Development Center U.S. Inc. (1)
 - Amazon Web Services, Inc. (1)
 
@@ -106,8 +105,8 @@ normalized name and employer state (see docs/decisions.md D11).
 - Meta Platforms, Inc (14,963)
 - Meta Platforms, Inc. (5,574)
 - META PLATFORMS, INC. (1,591)
-- Neurolens, Inc. (1)
 - Polmer LLC (1)
+- Neurolens, Inc. (1)
 - Newton, Inc. (1)
 
 **Apple Inc.** (FEIN 94-2404110, CA), 20,625 cases (FY2023: 4,088, FY2024: 3,816, FY2025: 7,039, FY2026: 5,682)
@@ -122,10 +121,10 @@ normalized name and employer state (see docs/decisions.md D11).
 - Amazon Web Services Inc (106)
 - Amazon Web Services, Inc (8)
 - Amazon Web Services Inc. (3)
-- Amazon Web Services LLC (2)
 - AMAZON WEB SERVICES INC (2)
-- Amazon Development Center U.S., Inc. (1)
+- Amazon Web Services LLC (2)
 - AMAZON WEB SERVICES INC. (1)
+- Amazon Development Center U.S., Inc. (1)
 - Amazon Web Services (1)
 
 **WAL-MART ASSOCIATES, INC.** (FEIN 71-0794409, AR), 13,603 cases (FY2023: 3,200, FY2024: 3,936, FY2025: 4,145, FY2026: 2,322)
@@ -153,10 +152,10 @@ normalized name and employer state (see docs/decisions.md D11).
 - HCL AMERICA INC (11,987)
 - HCL America, Inc. (7)
 - HCL AMERICA, INC. (5)
-- hcl america inc (1)
 - HCL America Solutions Inc (1)
-- 77-0205035 (1)
+- hcl america inc (1)
 - HCL AMERIC (1)
+- 77-0205035 (1)
 
 **Intel Corporation** (FEIN 94-1672743, CA), 11,852 cases (FY2023: 3,587, FY2024: 3,732, FY2025: 2,800, FY2026: 1,733)
 
@@ -171,8 +170,8 @@ normalized name and employer state (see docs/decisions.md D11).
 - CAPGEMINI AMERICA INC (8,775)
 - Capgemini America Inc (1,906)
 - Capgemini America, Inc. (495)
-- Immidart Technologies (1)
 - Immidart Technologies LLP (1)
+- Immidart Technologies (1)
 
 **IBM Corporation** (FEIN 13-0871985, NC), 11,006 cases (FY2023: 3,066, FY2024: 3,625, FY2025: 3,078, FY2026: 1,237)
 

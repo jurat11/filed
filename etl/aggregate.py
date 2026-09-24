@@ -12,20 +12,19 @@ import logging
 import duckdb
 
 from etl import ingest
-from etl.soc import ROLE_GROUPS, role_group_sql
+from etl.soc import role_group_sql
 
 log = logging.getLogger(__name__)
 
 # Role group selections for the entry-level signal.
+# Neon space is tight (free plan), so only the selection the employer page shows is kept.
 SELECTIONS: dict[str, list[str]] = {
-    "software": ["Software engineering"],
     "swe_data_fin": [
         "Software engineering",
         "Data and analytics",
         "Finance",
         "Quant and actuarial",
     ],
-    "all": [*ROLE_GROUPS, "Other"],
 }
 
 CERT = "case_status = 'Certified'"
@@ -81,6 +80,7 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             count(*) FILTER (WHERE full_time AND wage_valid)::INT AS wage_rows,
             round(median(wage_annual) FILTER (WHERE full_time AND wage_valid)) AS wage_median
         FROM c WHERE {CERT}
+          AND fiscal_year >= (SELECT max(fiscal_year) - 1 FROM lca)
         GROUP BY ALL
     """)
     con.execute(f"""
@@ -96,7 +96,9 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
                    row_number() OVER (PARTITION BY employer_id, fiscal_year
                                       ORDER BY count(*) DESC, worksite_state)::INT
             FROM c WHERE {CERT} AND worksite_state IS NOT NULL GROUP BY 1, 2, 4
-        ) WHERE rank <= 5
+        ) t WHERE rank <= 5
+          AND fiscal_year = (SELECT max(fiscal_year) FROM c c2 WHERE c2.employer_id = t.employer_id
+                             AND c2.case_status = 'Certified')
     """)
     con.execute(f"""
         CREATE OR REPLACE TABLE agg_lca_cube AS
