@@ -21,7 +21,7 @@ from pathlib import Path
 
 import duckdb
 
-from etl import manifest
+from etl import manifest, steps
 from etl.columns import (
     CANONICAL,
     LAYOUT_URLS,
@@ -275,15 +275,20 @@ def run(files: list[RawFile] | None = None, restage: bool = False) -> dict:
     con = connect()
     staged = {}
     m = manifest.load()["files"]
+    restaged = []
     for rf in files:
         entry = m.get(f"dol/{rf.name}")
         out = STAGED / (Path(rf.name).stem + ".parquet")
-        if restage or not entry or not out.exists():
+        # A file replaced under the same name (a corrected DOL release) has a new hash.
+        changed = entry is None or entry.get("sha256") != steps.file_sha(RAW_DOL / rf.name)
+        if restage or changed or not out.exists():
             entry = stage_file(con, rf)
+            restaged.append(rf.name)
         staged[rf.name] = ROOT / entry["staged"]
     record_layouts()
     stats = build_canonical(con, files, staged)
     record_coverage(con, files)
+    stats["restaged"] = restaged
     return stats
 
 
