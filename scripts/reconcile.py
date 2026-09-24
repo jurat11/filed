@@ -8,7 +8,12 @@ The pandas path re-implements the two rules the pipeline applies, independently:
 - drop the formatted-but-empty rows at the bottom of a sheet (no CASE_NUMBER);
 - within a fiscal year, a case in several quarterly files keeps its latest quarter's row.
 
+A fiscal year present on one side and missing on the other is a difference of the whole
+count, never compared against 0. tests/test_reconcile.py runs the same pandas path on the
+committed fixture slices against a pipeline built from them, so the check runs in CI too.
+
 Run: uv run python scripts/reconcile.py   (needs DATABASE_URL, or DATABASE_URL_DIRECT)
+Exits with status 1 when the total difference is not 0.
 """
 
 from __future__ import annotations
@@ -25,9 +30,14 @@ RAW = ROOT / "data" / "raw" / "dol"
 OUT = ROOT / "eval" / "reconcile.md"
 
 
-def raw_files() -> dict[int, list[tuple[int, Path]]]:
+MEASURES = ["filed", "certified", "withdrawn", "denied"]
+
+
+def raw_files(
+    raw_dir: Path = RAW, pattern: str = "LCA_Disclosure_Data_FY*_Q*.xlsx"
+) -> dict[int, list[tuple[int, Path]]]:
     by_year: dict[int, list[tuple[int, Path]]] = {}
-    for p in sorted(RAW.glob("LCA_Disclosure_Data_FY*_Q*.xlsx")):
+    for p in sorted(raw_dir.glob(pattern)):
         fy, q = map(int, re.search(r"FY(\d{4})_Q(\d)", p.name).groups())
         by_year.setdefault(fy, []).append((q, p))
     # FY2026 has a single cumulative Q3 file; earlier years have one file per quarter.
@@ -37,7 +47,11 @@ def raw_files() -> dict[int, list[tuple[int, Path]]]:
 def pandas_counts(files: list[tuple[int, Path]]) -> dict[str, int]:
     frames = []
     for q, p in files:
-        df = pd.read_excel(p, engine="calamine", usecols=["CASE_NUMBER", "CASE_STATUS"], dtype=str)
+        cols = ["CASE_NUMBER", "CASE_STATUS"]
+        if p.suffix == ".csv":
+            df = pd.read_csv(p, usecols=cols, dtype=str)
+        else:
+            df = pd.read_excel(p, engine="calamine", usecols=cols, dtype=str)
         df = df[df["CASE_NUMBER"].notna() & (df["CASE_NUMBER"].str.strip() != "")]
         df["q"] = q
         frames.append(df)
@@ -65,8 +79,24 @@ def db_counts() -> dict[int, dict[str, int]]:
     }
 
 
+def compare(raw: dict[int, dict[str, int]], db: dict[int, dict[str, int]]) -> tuple[list[str], int]:
+    """Markdown table rows and the total absolute difference. A year missing on either
+    side counts its whole value as the difference."""
+    lines, total = [], 0
+    fmt = lambda v: "missing" if v is None else f"{v:,}"  # noqa: E731
+    for fy in sorted(raw.keys() | db.keys()):
+        for k in MEASURES:
+            r, d = raw.get(fy, {}).get(k), db.get(fy, {}).get(k)
+            diff = (d or 0) - (r or 0) if r is not None and d is not None else (r or d or 0)
+            total += abs(diff)
+            lines.append(f"| {fy} | {k} | {fmt(r)} | {fmt(d)} | {diff:,} |")
+    return lines, total
+
+
 def main() -> None:
     db = db_counts()
+    raw = {fy: pandas_counts(files) for fy, files in raw_files().items()}
+    rows, total_diff = compare(raw, db)
     lines = [
         "# Reconcile",
         "",
@@ -76,18 +106,15 @@ def main() -> None:
         "",
         "| Fiscal year | Measure | Raw files (pandas) | Database | Difference |",
         "| --- | --- | ---: | ---: | ---: |",
+        *rows,
+        "",
+        f"**Total absolute difference: {total_diff:,}**",
+        "",
     ]
-    total_diff = 0
-    for fy, files in raw_files().items():
-        raw = pandas_counts(files)
-        for k in ["filed", "certified", "withdrawn", "denied"]:
-            d = db.get(fy, {}).get(k, 0) - raw[k]
-            total_diff += abs(d)
-            lines.append(f"| {fy} | {k} | {raw[k]:,} | {db.get(fy, {}).get(k, 0):,} | {d:,} |")
-        print(fy, raw, db.get(fy))
-    lines += ["", f"**Total absolute difference: {total_diff:,}**", ""]
     OUT.write_text("\n".join(lines))
     print("total difference:", total_diff)
+    if total_diff:
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

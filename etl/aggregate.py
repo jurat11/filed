@@ -56,7 +56,9 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             count(*) FILTER (WHERE case_status IN ('Withdrawn', 'Certified - Withdrawn'))::INT
                 AS withdrawn,
             count(*) FILTER (WHERE case_status = 'Denied')::INT AS denied,
-            coalesce(sum(total_workers) FILTER (WHERE {CERT}), 0)::INT AS certified_workers,
+            -- Missing when certified rows exist but none states a worker count.
+            (CASE WHEN count(*) FILTER (WHERE {CERT}) = 0 THEN 0
+                  ELSE sum(total_workers) FILTER (WHERE {CERT}) END)::INT AS certified_workers,
             count(*) FILTER (WHERE {WAGE_OK})::INT AS wage_rows,
             round(quantile_cont(wage_annual, 0.25) FILTER (WHERE {WAGE_OK})) AS wage_p25,
             round(quantile_cont(wage_annual, 0.50) FILTER (WHERE {WAGE_OK})) AS wage_median,
@@ -106,7 +108,7 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
                coalesce(worksite_state, '??') AS worksite_state, level AS wage_level,
                count(*)::INT AS certified,
                count(*) FILTER (WHERE full_time AND wage_valid)::INT AS wage_rows,
-               coalesce(sum(wage_annual) FILTER (WHERE full_time AND wage_valid), 0) AS wage_sum
+               sum(wage_annual) FILTER (WHERE full_time AND wage_valid) AS wage_sum
         FROM c WHERE {CERT}
         GROUP BY ALL
     """)
@@ -126,13 +128,20 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             FROM c WHERE {CERT} AND fiscal_year IN ({", ".join(map(str, last2))})
             GROUP BY employer_id
         """)
-    # USCIS initial approvals are only loaded for FY2023, so for these years they are
-    # unknown (NULL), never zero.
+    # USCIS initial approvals for the same years. If any of those years is not loaded,
+    # the figure is unknown (NULL, uscis_years_loaded false), never zero or a partial sum.
+    # If they are loaded and no USCIS record matched the employer, it is NULL too.
+    loaded = {r[0] for r in con.execute("SELECT DISTINCT fiscal_year FROM uscis_year").fetchall()}
+    all_loaded = set(last2) <= loaded
     con.execute(f"""
         CREATE OR REPLACE TABLE agg_entry_signal AS
-        SELECT s.*, (SELECT sum(initial_approvals) FROM uscis_year u
-                     WHERE u.employer_id = s.employer_id
-                       AND u.fiscal_year IN ({", ".join(map(str, last2))}))::INT AS uscis_initial
+        SELECT s.*,
+               CASE WHEN {all_loaded} THEN
+                   (SELECT sum(initial_approvals) FROM uscis_year u
+                    WHERE u.employer_id = s.employer_id
+                      AND u.fiscal_year IN ({", ".join(map(str, last2))}))
+               END::INT AS uscis_initial,
+               {all_loaded} AS uscis_years_loaded
         FROM ({" UNION ALL ".join(parts)}) s
     """)
 
@@ -157,8 +166,9 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
         )
         SELECT e.employer_id, e.slug, e.display_name, e.fein, e.city, e.state,
                true AS has_lca, us.employer_id IS NOT NULL AS has_uscis,
-               e.lca_rows::INT AS lca_rows, coalesce(lcay.certified_total, 0) AS certified_total,
-               coalesce(us.uscis_initial_total, 0) AS uscis_initial_total,
+               e.lca_rows::INT AS lca_rows, lcay.certified_total,
+               -- NULL when no USCIS record matched: unknown, not zero.
+               us.uscis_initial_total,
                lcay.h1b_dependent_latest, coalesce(lcay.willful_violator_ever, false)
                    AS willful_violator_ever,
                e.display_name || ' | ' || coalesce(al.names, '') AS search_text
@@ -166,8 +176,9 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
         LEFT JOIN lcay USING (employer_id) LEFT JOIN us USING (employer_id)
         LEFT JOIN al USING (employer_id)
         UNION ALL
-        SELECT o.employer_id, o.slug, m.name, NULL, m.city, m.state, false, true, 0, 0,
-               coalesce(us.uscis_initial_total, 0), NULL, false, m.name
+        -- USCIS-only employers: no LCA match, so LCA counts are missing, not zero.
+        SELECT o.employer_id, o.slug, m.name, NULL, m.city, m.state, false, true, NULL, NULL,
+               us.uscis_initial_total, NULL, false, m.name
         FROM uscis_only o
         JOIN uscis_employer m USING (norm, state, tax4)
         LEFT JOIN us ON us.employer_id = o.employer_id
