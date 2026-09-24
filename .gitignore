@@ -1,0 +1,13 @@
+data/raw/
+data/work/
+.env
+.env*.local
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+node_modules/
+web/.next/
+web/next-env.d.ts
+.DS_Store
+.claude/

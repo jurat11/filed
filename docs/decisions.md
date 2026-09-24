@@ -1,0 +1,57 @@
+# Decisions
+
+Calls made where the brief, the spec or the data left a choice open. Each has the reason.
+
+## Data acquisition
+
+**D1. Which DOL files.** The brief assumes quarterly releases are cumulative within a fiscal year, so only the last one is needed. The files say otherwise. Measured from the DECISION_DATE range of every file:
+
+| File | Decisions from | to | Rows |
+| --- | --- | --- | --- |
+| FY2023 Q1 | 2022-10-01 | 2022-12-31 | 98,735 |
+| FY2023 Q2 | 2022-10-01 | 2023-03-31 | 231,544 |
+| FY2023 Q3 | 2023-04-01 | 2023-06-30 | 186,389 |
+| FY2023 Q4 | 2023-07-01 | 2023-09-30 | 127,939 |
+| FY2024 Q1 to Q4 | one quarter each | | 99,692 / 123,978 / 216,470 / 120,897 |
+| FY2025 Q1 to Q4 | one quarter each | | 107,414 / 132,133 / 238,425 / 118,580 |
+| FY2026 Q3 | 2025-10-01 | 2026-06-30 | 437,496 |
+
+Loading only "Q4" would have kept about 22% of FY2023 to FY2025. So all four quarterly files are loaded for FY2023 to FY2025, and the single FY2026 Q3 file (the latest on dol.gov as of September 23, 2026) for FY2026. Within a fiscal year a case that appears in more than one file keeps the row from the latest file, since CASE_STATUS is the status after the last significant event. This drops 102,758 repeated rows: 100,197 in FY2023 (FY2023 Q2 repeats all of Q1) and 1,731 in FY2025 (cases decided in one quarter and withdrawn in a later one). The union of each year's main files was checked against that year's worksites file: every worksites case is in the main files for FY2023 and FY2026, while 9,604 (FY2024) and 8,872 (FY2025) worksites cases have no main-file row, which is a gap in DOL's releases and is listed as a limitation.
+
+The brief says the worksites file starts in FY2026, but dol.gov publishes an `LCA_Worksites` file for every year. It is loaded and row-count checked for every year.
+
+**D2. Files downloaded by hand.** dol.gov answers 403 to scripted downloads, so the files were downloaded in a browser and put in `data/raw/`. The download date in `data/manifest.json` is the file's modification time, and the source URL is the link on the DOL performance page.
+
+**D11. FY2023 has no employer FEIN.** The FY2023 record layout lists EMPLOYER_FEIN as withheld PII, and the column is absent from all four FY2023 files. FY2023 rows are attached to a FEIN employer when their normalized name plus employer state points to exactly one FEIN in FY2024 to FY2026; otherwise they form a name-based employer. See `etl/employers.py`.
+
+**D12. Worksite state = first worksite on the main file.** The main file carries the first worksite (city, state, wage, wage level) for every case; the worksites file lists additional locations. So that each LCA counts once, state filters and "top worksite states" use the main file's first worksite.
+
+**D13. Yes/No fields.** The layouts describe H-1B_DEPENDENT and WILLFUL_VIOLATOR as Y/N, but the files hold "Yes", "No" and "N/A". Y, YES, N and NO are parsed; N/A is null.
+
+**D14. Column name drift inside a year.** FY2025 Q1 names the dependency column "H-1B_DEPENDENT" where every other file says "H_1B_DEPENDENT", so column maps are keyed by fiscal year and quarter. The worksites files spell out state names ("MINNESOTA") and are converted to USPS codes.
+
+**D15. Blank rows in the sheets.** Several DOL sheets carry hundreds of thousands of formatted but empty rows after the data (FY2026 Q3: 437,496 data rows, 595,239 blank). DuckDB's `read_xlsx` stops at the first empty row by default; the loader reads the whole sheet and drops rows with no CASE_NUMBER, and the raw count is taken from the sheet XML by a separate reader that counts rows with any value. Every blank row sits after the last data row.
+
+## Wages
+
+**D3. Offered wage = `WAGE_RATE_OF_PAY_FROM`.** The LCA gives a wage range. The lower bound is always filled in and is the figure the employer commits to. `WAGE_RATE_OF_PAY_TO` is often blank, so it is kept but not used in statistics.
+
+**D4. Unit spelling.** Units are matched ignoring case and spaces, and "BiWeekly" is read as "Bi-Weekly". Any other unit gives no annual wage, and the row counts as having no usable wage.
+
+## Employer names
+
+**D5. Extra legal suffixes.** Besides the spec's list (INC, LLC, LLP, CORP, CORPORATION, CO, LTD, LP, PLLC, THE), the normalizer also removes INCORPORATED, LIMITED, COMPANY and PC. These are long forms or near forms of listed suffixes ("FORD MOTOR COMPANY" and "FORD MOTOR CO" must agree). Suffixes are removed only from the end of the name, repeatedly ("CO LTD"), and "THE" only from the start, so words in the middle of a name are never touched.
+
+**D6. "&" becomes "AND"; periods and apostrophes join.** Stripping "&" as plain punctuation would make "AT&T" into "ATT" but "AT & T" into "AT T". Turning "&" into " AND " makes every spelling agree. Periods and apostrophes are deleted without a space so "L.L.C." becomes "LLC" and "MACY'S" becomes "MACYS".
+
+**D7. DBA.** Text after "DBA" or "D/B/A" in a name is cut off. The legal name comes first, and the trade name is in its own column.
+
+## USCIS
+
+**D8. Initial and continuing.** The Employer Data Hub now reports six categories (New Employment, New Concurrent, Continuation, Change with Same Employer, Change of Employer, Amended), but its own documentation still describes counts of "initial" and "continuing" approvals. Filed uses initial = New Employment + New Concurrent and continuing = the other four. This is the split USCIS used when the hub published two columns, and it puts F-1 to H-1B changes of status under initial. New Employment is also stored and shown on its own.
+
+**D9. USCIS tax ID.** The hub gives the last four digits of the employer's tax ID. The brief joins on normalized name plus state; the last four FEIN digits are used as an extra check to break ties when one normalized name and state matches several LCA employers.
+
+## Database
+
+**D10. Neon holds aggregates, not every case row.** The Neon project is on the free plan, with a 512 MB limit per branch. About 2.5 to 3 million canonical LCA rows would not fit with indexes. The canonical table is kept in DuckDB (`data/work/filed.duckdb`) and exported as Parquet. Neon gets the aggregate tables, including a cube of certified counts by employer, fiscal year, role group, worksite state and wage level, which is what `/explore` filters. The reconcile script compares the Neon aggregate counts with counts computed straight from the raw files.
