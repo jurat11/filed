@@ -22,4 +22,13 @@ https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Worksite_Record_Layout_
 
 ## USCIS -> data/raw/uscis/
 Page: https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub
-Crosstab View -> Fiscal Year 2023..2026 (all employers) -> Download to Excel -> CSV.
+Later years: Crosstab View in the hub, then Download to Excel as CSV (not loaded in this build).
+
+## Also required: quarterly files FY2023 to FY2025
+
+These releases are not cumulative (docs/decisions.md D1), so Q1 to Q3 are needed too:
+`https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Disclosure_Data_FY{2023,2024,2025}_Q{1,2,3}.xlsx`
+
+## USCIS FY2023 (downloadable directly)
+
+https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv
