@@ -1,8 +1,8 @@
 import Link from "next/link";
+import { SearchBox } from "@/components/SearchBox";
 import { int } from "@/lib/format";
+import { aliasNote } from "@/lib/search";
 import { lcaYears, search, uscisYears } from "@/lib/queries";
-
-export const dynamic = "force-dynamic";
 
 export default async function Home({
   searchParams,
@@ -47,14 +47,8 @@ export default async function Home({
         it came from.
       </p>
 
-      <form action="/" className="mt-8 flex max-w-xl gap-2">
-        <input
-          name="q"
-          defaultValue={query}
-          placeholder="Search an employer, e.g. Capital One"
-          aria-label="Employer name"
-          className="w-full rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
-        />
+      <form action="/" role="search" className="mt-8 flex max-w-xl gap-2">
+        <SearchBox defaultValue={query} />
         <button className="rounded-md bg-accent px-4 py-2 font-medium text-white dark:text-black">
           Search
         </button>
@@ -75,6 +69,11 @@ export default async function Home({
                     <span>
                       {r.display_name}
                       <span className="ml-2 text-sm text-muted">{r.state}</span>
+                      {aliasNote(r.display_name, r.matched_alias) && (
+                        <span className="block text-xs text-muted">
+                          matched &ldquo;{r.matched_alias}&rdquo;
+                        </span>
+                      )}
                       {!r.has_lca && (
                         <span className="ml-2 text-xs text-warn">USCIS only, no LCA match</span>
                       )}
