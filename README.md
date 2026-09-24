@@ -49,6 +49,19 @@ DATABASE_URL=... uv run filed load
 uv run python scripts/reconcile.py
 ```
 
+## Tests
+
+```bash
+uv run pytest -q                      # ETL; load tests need TEST_DATABASE_URL (a throwaway Postgres)
+cd web && pnpm test                   # Vitest: formatting, /explore parsing and SQL
+DATABASE_URL=postgres://localhost/filed_e2e uv run filed seed   # pipeline on tests/fixtures
+cd web && pnpm build && pnpm e2e      # Playwright against that seeded database
+```
+
+`filed seed` runs every ETL step on the committed fixture slices (real LCA rows, synthetic
+USCIS counts) and loads the result, so the site and the load step are tested in CI without
+Neon. It refuses a Neon URL. See docs/decisions.md D21.
+
 ## Limitations
 
 - An LCA is filed before a petition. It shows that an employer intended to hire into a role, not that a visa was approved.

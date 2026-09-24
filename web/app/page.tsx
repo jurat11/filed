@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { int } from "@/lib/format";
-import { lcaYears, search } from "@/lib/queries";
+import { lcaYears, search, uscisYears } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +11,10 @@ export default async function Home({
 }) {
   const { q = "" } = await searchParams;
   const query = q.trim().slice(0, 100);
-  const [results, years] = await Promise.all([
+  const [results, years, uYears] = await Promise.all([
     query.length >= 2 ? search(query) : Promise.resolve([]),
     lcaYears(),
+    uscisYears(),
   ]);
   const lastFull = years.filter((y) => y < Math.max(...years)).at(-1) ?? Math.max(...years);
 
@@ -30,7 +31,7 @@ export default async function Home({
     },
     {
       label: "Most USCIS initial approvals",
-      note: "FY2023, the latest year USCIS publishes as a file",
+      note: `USCIS Data Hub, ${uYears.map((y) => `FY${y}`).join(", ") || "no year loaded"}`,
       href: "/explore?sort=uscis",
     },
   ];
@@ -79,7 +80,7 @@ export default async function Home({
                       )}
                     </span>
                     <span className="num shrink-0 text-sm text-muted">
-                      {int(r.certified_total)} certified LCAs
+                      {r.has_lca ? `${int(r.certified_total)} certified LCAs` : "no LCA match"}
                     </span>
                   </Link>
                 </li>
