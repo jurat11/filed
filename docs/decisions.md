@@ -22,7 +22,7 @@ The brief says the worksites file starts in FY2026, but dol.gov publishes an `LC
 
 **D2. Files downloaded by hand.** dol.gov answers 403 to scripted downloads, so the files were downloaded in a browser and put in `data/raw/`. The download date in `data/manifest.json` is the file's modification time, and the source URL is the link on the DOL performance page.
 
-**D11. FY2023 has no employer FEIN.** The FY2023 record layout lists EMPLOYER_FEIN as withheld PII, and the column is absent from all four FY2023 files. FY2023 rows are attached to a FEIN employer when their normalized name plus employer state points to exactly one FEIN in FY2024 to FY2026; otherwise they form a name-based employer. See `etl/employers.py`.
+**D11. FY2023 has no employer FEIN.** The FY2023 record layout lists EMPLOYER_FEIN as withheld PII, and the column is absent from all four FY2023 files. FY2023 rows (and the few later rows with a malformed or placeholder FEIN) are attached to a FEIN employer in this order: (a) one FEIN holds at least 95% of the FY2024 to FY2026 rows with the same normalized name and employer state; (b) the name and state have no FEIN rows, but the normalized name maps to exactly one FEIN in any state. Otherwise they form a name-based employer. Result: 94.4% of FY2023 cases (513,345 of 543,580) join a FEIN employer; the rest stay name-based. The 95% share, rather than "exactly one FEIN", is there because single typo rows are common: one "Amazon.com Services LLC" row filed under another company's FEIN would otherwise have stranded 11,534 FY2023 Amazon cases. It never merges two FEINs; it only decides where a row without a FEIN goes.
 
 **D12. Worksite state = first worksite on the main file.** The main file carries the first worksite (city, state, wage, wage level) for every case; the worksites file lists additional locations. So that each LCA counts once, state filters and "top worksite states" use the main file's first worksite.
 
@@ -31,6 +31,10 @@ The brief says the worksites file starts in FY2026, but dol.gov publishes an `LC
 **D14. Column name drift inside a year.** FY2025 Q1 names the dependency column "H-1B_DEPENDENT" where every other file says "H_1B_DEPENDENT", so column maps are keyed by fiscal year and quarter. The worksites files spell out state names ("MINNESOTA") and are converted to USPS codes.
 
 **D15. Blank rows in the sheets.** Several DOL sheets carry hundreds of thousands of formatted but empty rows after the data (FY2026 Q3: 437,496 data rows, 595,239 blank). DuckDB's `read_xlsx` stops at the first empty row by default; the loader reads the whole sheet and drops rows with no CASE_NUMBER, and the raw count is taken from the sheet XML by a separate reader that counts rows with any value. Every blank row sits after the last data row.
+
+**D16. Placeholder FEINs.** 12-3456789 appears on 102 cases from 18 unrelated employers (a filler value), and 98-7654321 and 55-5555555 appear too. FEINs that are a placeholder sequence, one repeated digit, or start with 00 are treated as missing, and those rows resolve by name.
+
+**D17. Public employers share FEINs.** Many state agencies and universities file under one state FEIN (for example 52-6002033 covers the University of Maryland, the Maryland Department of Health and others). One FEIN is one employer in Filed, so these appear as one employer under the most frequent name, with every name listed as a variant. Stray single rows filed under a big company's FEIN by another company (for example 1 "Neurolens, Inc." row under Meta's FEIN) stay in that employer's variant list with their row count, since nothing in the data says which field is wrong.
 
 ## Wages
 

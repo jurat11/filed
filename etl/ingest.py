@@ -99,7 +99,8 @@ def stage_file(con: duckdb.DuckDBPyConnection, rf: RawFile, raw_dir: Path = RAW_
 
 
 def _text(col: str | None) -> str:
-    return f"nullif(trim({col}), '')" if col else "NULL"
+    # Collapse tabs, newlines and repeated spaces; DOL names carry stray tabs.
+    return f"nullif(trim(regexp_replace({col}, '\\s+', ' ', 'g')), '')" if col else "NULL"
 
 
 def _date(col: str | None) -> str:
@@ -126,12 +127,23 @@ def _yn(col: str | None) -> str:
     return f"CASE WHEN {v} IN ('Y', 'YES') THEN true WHEN {v} IN ('N', 'NO') THEN false END"
 
 
+# Placeholder FEINs typed by filers who did not give a real one (12-3456789 alone is
+# shared by 18 unrelated employer names). They are treated as missing.
+PLACEHOLDER_FEINS = ("123456789", "987654321", "012345678")
+
+
 def _fein(col: str | None) -> str:
-    # Keep only digits; a valid FEIN has 9. Anything else is NULL and resolves by name.
+    """Keep only digits; a valid FEIN has 9 and is not a placeholder. Otherwise NULL,
+    and the row resolves by name (docs/decisions.md D16)."""
     if not col:
         return "CAST(NULL AS VARCHAR)"
     d = f"regexp_replace({col}, '[^0-9]', '', 'g')"
-    return f"CASE WHEN length({d}) = 9 THEN left({d}, 2) || '-' || right({d}, 7) END"
+    placeholders = ", ".join(f"'{p}'" for p in PLACEHOLDER_FEINS)
+    same_digit = f"{d} = repeat(left({d}, 1), 9)"
+    return (
+        f"CASE WHEN length({d}) = 9 AND {d} NOT IN ({placeholders}) AND NOT ({same_digit}) "
+        f"AND left({d}, 2) <> '00' THEN left({d}, 2) || '-' || right({d}, 7) END"
+    )
 
 
 def _state(col: str | None) -> str:
