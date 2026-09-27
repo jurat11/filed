@@ -143,3 +143,59 @@ def test_reload_swaps_in_place(duck, pg):
     assert _schemas(pg) == {"filed"}
     idx = pg.execute("SELECT count(*) FROM pg_indexes WHERE schemaname = 'filed'").fetchone()[0]
     assert idx >= len(load.INDEXES) + 1  # + the meta primary key
+
+
+# ---- revalidation ----------------------------------------------------------------------
+
+
+class _Site:
+    """A local stand-in for /api/revalidate that answers from a list of status codes."""
+
+    def __init__(self, statuses):
+        import http.server
+        import threading
+
+        self.statuses, self.requests = list(statuses), []
+        site = self
+
+        class H(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers["Content-Length"]))
+                site.requests.append((self.path, self.headers["Authorization"], body))
+                code = site.statuses.pop(0)
+                self.send_response(code)
+                self.end_headers()
+                self.wfile.write(b'{"revalidated": true}' if code == 200 else b'{"error": "x"}')
+
+            def log_message(self, *a):
+                pass
+
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), H)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+
+
+def test_revalidate_skipped_without_config(monkeypatch):
+    monkeypatch.delenv("FILED_SITE_URL", raising=False)
+    monkeypatch.delenv("REVALIDATE_SECRET", raising=False)
+    assert load.revalidate("2026-01-01T00:00:00+00:00") == {"skipped": True}
+
+
+def test_revalidate_posts_loaded_at_and_retries_409(monkeypatch):
+    site = _Site([409, 200])
+    monkeypatch.setenv("FILED_SITE_URL", site.url + "/")
+    monkeypatch.setenv("REVALIDATE_SECRET", "s3cret")
+    assert load.revalidate("2026-01-01T00:00:00+00:00", wait=0) == {"revalidated": True}
+    assert len(site.requests) == 2
+    path, auth, body = site.requests[-1]
+    assert (path, auth) == ("/api/revalidate", "Bearer s3cret")
+    assert body == b'{"loaded_at": "2026-01-01T00:00:00+00:00"}'
+
+
+def test_revalidate_fails_loudly_on_auth_error(monkeypatch):
+    site = _Site([401])
+    monkeypatch.setenv("FILED_SITE_URL", site.url)
+    monkeypatch.setenv("REVALIDATE_SECRET", "wrong")
+    with pytest.raises(load.RevalidateError, match="401"):
+        load.revalidate("x", wait=0)
+    assert len(site.requests) == 1

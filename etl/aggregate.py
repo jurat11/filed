@@ -80,7 +80,12 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             count(*) FILTER (WHERE level = 'I')::INT AS level_i,
             count(*) FILTER (WHERE level = 'II')::INT AS level_ii,
             count(*) FILTER (WHERE full_time AND wage_valid)::INT AS wage_rows,
-            round(median(wage_annual) FILTER (WHERE full_time AND wage_valid)) AS wage_median
+            round(quantile_cont(wage_annual, 0.25) FILTER (WHERE full_time AND wage_valid))
+                AS wage_p25,
+            round(quantile_cont(wage_annual, 0.50) FILTER (WHERE full_time AND wage_valid))
+                AS wage_median,
+            round(quantile_cont(wage_annual, 0.75) FILTER (WHERE full_time AND wage_valid))
+                AS wage_p75
         FROM c WHERE {CERT}
           AND fiscal_year >= (SELECT max(fiscal_year) - 1 FROM lca)
         GROUP BY ALL
@@ -158,11 +163,12 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
             SELECT employer_id, sum(initial_approvals)::INT AS uscis_initial_total
             FROM uscis_year GROUP BY 1
         ),
-        al AS (
-            SELECT employer_id, string_agg(name, ' | ' ORDER BY rows DESC) AS names
-            FROM (SELECT employer_id, name, rows FROM employer_aliases
-                  QUALIFY row_number() OVER (PARTITION BY employer_id ORDER BY rows DESC) <= 25)
-            GROUP BY 1
+        -- Most frequent NAICS code on the employer's LCAs, for "similar employers".
+        nc AS (
+            SELECT employer_id, naics_code AS naics FROM lca WHERE naics_code IS NOT NULL
+            GROUP BY 1, 2
+            QUALIFY row_number() OVER (PARTITION BY employer_id
+                                       ORDER BY count(*) DESC, naics_code) = 1
         )
         SELECT e.employer_id, e.slug, e.display_name, e.fein, e.city, e.state,
                true AS has_lca, us.employer_id IS NOT NULL AS has_uscis,
@@ -171,14 +177,14 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
                us.uscis_initial_total,
                lcay.h1b_dependent_latest, coalesce(lcay.willful_violator_ever, false)
                    AS willful_violator_ever,
-               e.display_name || ' | ' || coalesce(al.names, '') AS search_text
+               nc.naics
         FROM employers e
         LEFT JOIN lcay USING (employer_id) LEFT JOIN us USING (employer_id)
-        LEFT JOIN al USING (employer_id)
+        LEFT JOIN nc USING (employer_id)
         UNION ALL
         -- USCIS-only employers: no LCA match, so LCA counts are missing, not zero.
         SELECT o.employer_id, o.slug, m.name, NULL, m.city, m.state, false, true, NULL, NULL,
-               us.uscis_initial_total, NULL, false, m.name
+               us.uscis_initial_total, NULL, false, NULL
         FROM uscis_only o
         JOIN uscis_employer m USING (norm, state, tax4)
         LEFT JOIN us ON us.employer_id = o.employer_id
@@ -193,9 +199,15 @@ def build(con: duckdb.DuckDBPyConnection) -> dict:
                              AND m.tax4 IS NOT DISTINCT FROM u.tax4
         GROUP BY 1, 2, 3
     """)
+    # Different FEINs with one normalized name (employers.py): shown as related legal
+    # entities on both employer pages, never merged.
+    con.execute("""
+        CREATE OR REPLACE TABLE agg_links AS
+        SELECT employer_a, employer_b, norm_name FROM possible_links
+    """)
     counts = {
         t: con.execute(f"SELECT count(*) FROM {t}").fetchone()[0]
-        for t in ["agg_employers", "agg_aliases", "agg_lca_year", "agg_lca_year_role",
+        for t in ["agg_links", "agg_employers", "agg_aliases", "agg_lca_year", "agg_lca_year_role",
                   "agg_lca_year_top", "agg_lca_cube", "agg_entry_signal", "uscis_year"]
     }  # fmt: skip
     log.info("aggregates: %s", counts)

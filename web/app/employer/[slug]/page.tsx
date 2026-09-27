@@ -1,11 +1,18 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { StackedBar } from "@/components/Bar";
 import { SourceTag } from "@/components/SourceTag";
+import { TrendLine } from "@/components/TrendLine";
 import { int, MISSING, n, pct, usd } from "@/lib/format";
-import { employer, ROLE_GROUPS, uscisYears } from "@/lib/queries";
+import { employer, lcaYears, ROLE_GROUPS, uscisYears } from "@/lib/queries";
 
-export const dynamic = "force-dynamic";
+// Pages are rendered on first request and cached until `filed load` purges the data
+// cache (docs/decisions.md D24), with a one-day fallback.
+export const revalidate = 86400;
+export function generateStaticParams() {
+  return [];
+}
 
 const LOTTERY_URL =
   "https://www.uscis.gov/newsroom/news-releases/dhs-changes-process-for-awarding-h-1b-work-visas-to-better-protect-american-workers";
@@ -19,7 +26,19 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const d = await employer((await params).slug);
-  return { title: d?.e.display_name ?? "Employer" };
+  if (!d) return { title: "Employer not found" };
+  const { e, years } = d;
+  const last = years.at(-1);
+  const description = last
+    ? `${e.display_name}: ${int(last.certified)} certified H-1B LCAs in FY${String(last.fiscal_year)}` +
+      ` (DOL LCA disclosure data), wage levels, offered pay and USCIS approvals.`
+    : `${e.display_name}: USCIS H-1B Employer Data Hub records. No DOL LCA match.`;
+  return {
+    title: e.display_name,
+    description,
+    alternates: { canonical: `/employer/${e.slug}` },
+    openGraph: { title: `${e.display_name} | Filed`, description, type: "article" },
+  };
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -32,9 +51,13 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function EmployerPage({ params }: { params: Promise<{ slug: string }> }) {
-  const [d, uYears] = await Promise.all([employer((await params).slug), uscisYears()]);
+  const [d, uYears, lYears] = await Promise.all([
+    employer((await params).slug),
+    uscisYears(),
+    lcaYears(),
+  ]);
   if (!d) notFound();
-  const { e, years, uscis, roles, top, aliases, signal } = d;
+  const { e, years, uscis, roles, top, aliases, signal, links, similar } = d;
   const uLabel = uYears.map((y) => `FY${y}`).join(", ") || "none";
   const latest2 = years.slice(-2) as Row[];
   const latest = years.at(-1) as Row | undefined;
@@ -70,7 +93,15 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
       {e.has_lca && latest && (
         <>
           <Section title="LCAs by fiscal year">
-            <div className="overflow-x-auto">
+            <TrendLine
+              title="Certified LCAs by fiscal year"
+              points={(years as Row[]).map((y) => ({
+                label: `FY${String(y.fiscal_year)}`,
+                value: n(y.certified),
+                partial: (n(y.quarter) ?? 4) < 4,
+              }))}
+            />
+            <div className="mt-4 overflow-x-auto">
               <table className="num w-full min-w-[640px] text-sm">
                 <thead className="text-left text-muted">
                   <tr className="border-b border-line">
@@ -167,6 +198,50 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 value: sum(roles2.filter((r) => r.role_group === g), "certified"),
               }))}
             />
+          </Section>
+
+          <Section title={`Offered wage by role group, ${lastSrc}`}>
+            <p className="mb-3 text-sm text-muted">
+              Certified, full-time LCAs with a valid wage, per fiscal year. Percentiles are not
+              combined across years.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="num w-full min-w-[640px] text-sm">
+                <thead className="text-left text-muted">
+                  <tr className="border-b border-line">
+                    <th className="py-2 font-normal">Role group</th>
+                    <th className="font-normal">Year</th>
+                    <th className="text-right font-normal">Certified</th>
+                    <th className="text-right font-normal">25th pct</th>
+                    <th className="text-right font-normal">Median</th>
+                    <th className="text-right font-normal">75th pct</th>
+                    <th className="pl-4 font-normal">Source</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ROLE_GROUPS.flatMap((g) =>
+                    roles2
+                      .filter((r) => r.role_group === g)
+                      .map((r) => {
+                        const y = latest2.find((l) => n(l.fiscal_year) === n(r.fiscal_year));
+                        return (
+                          <tr key={`${g}-${String(r.fiscal_year)}`} className="border-b border-line">
+                            <td className="py-2">{g}</td>
+                            <td>FY{String(r.fiscal_year)}</td>
+                            <td className="text-right">{int(r.certified)}</td>
+                            <td className="text-right">{usd(r.wage_p25)}</td>
+                            <td className="text-right font-semibold">{usd(r.wage_median)}</td>
+                            <td className="text-right">{usd(r.wage_p75)}</td>
+                            <td className="pl-4">
+                              <SourceTag file={String(y?.source_file ?? "")} rows={r.wage_rows} />
+                            </td>
+                          </tr>
+                        );
+                      }),
+                  )}
+                </tbody>
+              </table>
+            </div>
           </Section>
 
           {sig && (
@@ -277,6 +352,53 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
           </p>
         )}
       </Section>
+
+      {links.length > 0 && (
+        <Section title="Related legal entities">
+          <p className="mb-3 text-sm text-muted">
+            These employers file under a different federal tax ID (FEIN) but have the same
+            normalized name. Filed never merges different FEINs; each keeps its own figures.
+          </p>
+          <ul className="space-y-1 text-sm">
+            {links.map((l) => (
+              <li key={l.slug} className="flex flex-wrap justify-between gap-x-4">
+                <Link href={`/employer/${l.slug}`} className="underline">
+                  {l.display_name}
+                </Link>
+                <span className="num text-muted">
+                  {l.fein ? `FEIN ${l.fein}, ` : ""}
+                  {l.state ?? ""} {l.has_lca ? `${int(l.certified_total)} certified LCAs` : "no LCA match"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {similar.length > 0 && (
+        <Section title="Similar employers">
+          <p className="mb-3 text-sm text-muted">
+            Same NAICS industry code ({e.naics}, the code on most of this employer&rsquo;s LCAs) and
+            same employer state ({e.state}), ranked by certified LCAs across all loaded years.
+          </p>
+          <ol className="num space-y-1 text-sm">
+            {similar.map((s) => (
+              <li key={s.slug} className="flex justify-between gap-4">
+                <Link href={`/employer/${s.slug}`} className="underline">
+                  {s.display_name}
+                </Link>
+                <span className="text-muted">{int(s.certified_total)} certified</span>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-2">
+            <SourceTag
+              label={`DOL LCA FY${Math.min(...lYears)}-FY${Math.max(...lYears)}, all releases`}
+              rows={similar.reduce((t, s) => t + (n(s.certified_total) ?? 0), 0)}
+            />
+          </div>
+        </Section>
+      )}
 
       <Section title="Name variants seen">
         <ul className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
