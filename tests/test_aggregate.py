@@ -37,7 +37,13 @@ def case(n: int, **kw) -> dict:
     return row
 
 
-def build(rows: list[dict], uscis: dict[int, list[str]] | None = None, tmp_path=None):
+def build(
+    rows: list[dict],
+    uscis: dict[int, list[str]] | None = None,
+    tmp_path=None,
+    irs: list | None = None,
+    parents=None,
+):
     """Run wages, resolve, USCIS and aggregate on `rows`. `uscis` maps a fiscal year to
     legacy-layout CSV lines (without header)."""
     con = duckdb.connect()
@@ -65,7 +71,12 @@ def build(rows: list[dict], uscis: dict[int, list[str]] | None = None, tmp_path=
         files.append((uscis_join.UscisFile(2023, p.name, "https://example.test"), p))
     uscis_join.load_raw(con, files, record=False)
     uscis_join.match(con)
-    aggregate.build(con)
+    if parents is None:
+        parents = tmp_path / "parents.csv"
+        parents.write_text(
+            "group_slug,group_name,fein,status,evidence_url,reviewed_by,reviewed_on,note\n"
+        )
+    aggregate.build(con, irs_paths=irs or [], parents=parents)
     return con
 
 
@@ -260,3 +271,14 @@ def test_links_join_possible_link_pairs_to_both_employers(tmp_path):
     ).fetchall()
     assert sorted(got[0][:2]) == ["ASML US, LLC", "ASML US, LP"]
     assert got[0][2] == "ASML US"
+
+
+def test_prevailing_wage_median_per_role(tmp_path):
+    rows = [
+        case(1, prevailing_wage=90_000.0, pw_unit="Year"),
+        case(2, prevailing_wage=45.0, pw_unit="Hour"),  # 93,600 a year
+        case(3, prevailing_wage=12.0, pw_unit="Year"),  # unit error: left out
+        case(4, prevailing_wage=None, pw_unit=None),  # missing: left out
+    ]
+    con = build(rows, tmp_path=tmp_path)
+    assert one(con, "SELECT pw_rows, pw_median FROM agg_lca_year_role") == (2, 91_800)

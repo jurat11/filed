@@ -103,8 +103,8 @@ test.describe("explore", () => {
   test("state multi-select submits several states", async ({ page }) => {
     await page.goto("/explore");
     await page.getByText("Worksite states: all").click();
-    await page.getByRole("checkbox", { name: "TX" }).check();
-    await page.getByRole("checkbox", { name: "CA" }).check();
+    await page.getByRole("checkbox", { name: "TX", exact: true }).check();
+    await page.getByRole("checkbox", { name: "CA", exact: true }).check();
     await page.getByRole("button", { name: "Apply" }).click();
     await expect(page).toHaveURL(/state=CA.*state=TX|state=TX.*state=CA/);
     await expect(page.getByLabel("Active filters").getByRole("link", { name: "Remove filter: TX" })).toBeVisible();

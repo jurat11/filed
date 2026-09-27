@@ -17,6 +17,7 @@ const DEFAULTS = {
   fy: "all",
   min: 0,
   hideDependent: false,
+  hideCapExempt: false,
   sort: "certified",
   page: 1,
 };
@@ -58,6 +59,7 @@ describe("parseExplore", () => {
       fy: "2025",
       min: 10,
       hideDependent: true,
+      hideCapExempt: false,
       sort: "wage",
       page: 3,
     });
@@ -65,7 +67,7 @@ describe("parseExplore", () => {
 
   it.each(INJECTIONS)("drops injection attempt %j in every param", (bad) => {
     const sp = Object.fromEntries(
-      ["role", "state", "level", "fy", "min", "hide_dependent", "sort", "page"].map((k) => [k, bad]),
+      ["role", "state", "level", "fy", "min", "hide_dependent", "hide_cap_exempt", "sort", "page"].map((k) => [k, bad]),
     );
     expect(parseExplore(sp, YEARS)).toEqual(DEFAULTS);
   });
@@ -116,12 +118,14 @@ describe("exploreSql", () => {
       min: "7",
       sort: "name",
       hide_dependent: "1",
+      hide_cap_exempt: "1",
     });
     const { text, values } = exploreSql(p, 50, 100);
     expect(values).toEqual([2025, ["Finance"], ["VA"], ["I"], 7, 50, 100]);
     for (const v of ["Finance", "'VA'", "2025"]) expect(text).not.toContain(v);
     expect(text).toContain("ORDER BY display_name ASC, e.display_name, e.slug");
     expect(text).toContain("e.h1b_dependent_latest IS NOT TRUE");
+    expect(text).toContain("e.cap_exempt_rule IS NULL");
   });
 
   it("produces the same SQL text for hostile input as for none", () => {
@@ -165,13 +169,14 @@ describe("CSV", () => {
     avg_wage: null,
     uscis_initial_total: null,
     h1b_dependent_latest: null,
+    cap_exempt_rule: null,
     total_rows: 1,
   };
 
   it("leaves missing values empty, never 0", () => {
     const lines = toCsv([row], [2023]).trim().split("\n");
     expect(lines[0]).toBe(csvHeader([2023]).join(","));
-    expect(lines[1]).toBe('"Acme, ""The"" Co",,5,,0,,,/employer/acme');
+    expect(lines[1]).toBe('"Acme, ""The"" Co",,5,,0,,,,/employer/acme');
   });
 
   it("names the USCIS years in the header", () => {

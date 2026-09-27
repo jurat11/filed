@@ -68,3 +68,21 @@ This is a count and a share, not a score and not a probability of sponsorship.
 ## Wages
 
 Offered wages (the lower bound, `WAGE_RATE_OF_PAY_FROM`) are annualized: Year x1, Month x12, Bi-Weekly x26, Week x52, Hour x2080. Annualized values under $15,000 or over $1,000,000 are treated as unit errors: the row is kept and counted, but left out of wage statistics. Wage percentiles use certified, full-time LCAs with a valid wage only.
+
+## Likely cap-exempt
+
+Employers exempt from the H-1B cap (institutions of higher education, nonprofits affiliated with them, and nonprofit or government research organizations) file petitions outside the lottery. Filed flags an employer as **likely cap-exempt** when one of these rules fires, and shows which:
+
+1. The IRS Exempt Organizations Business Master File lists its FEIN as a 501(c)(3) with a higher education (NTEE B40 to B43, B50) or research (H, U) code, when that file is loaded.
+2. The NAICS code on most of its LCAs is 611310, Colleges, Universities, and Professional Schools.
+3. Its name contains University, College, Institute of Technology, School of Medicine or Medical School, and its NAICS code is in education (61) or health care (62).
+
+It is a rule applied to the data, not a USCIS determination. Rules 2 and 3 do not check nonprofit status.
+
+## Related entities
+
+Different FEINs are never merged. Two views connect them: employers whose names normalize to the same string (listed on each employer page), and groups in `data/parents.csv` that a person reviewed against public evidence (shown on a group page, each member with its own figures).
+
+## Prevailing wage
+
+The wage DOL requires for the occupation, area and wage level on the LCA (PREVAILING_WAGE), annualized like the offered wage and held to the same $15,000 to $1,000,000 range.

@@ -35,6 +35,14 @@ export type Employer = {
   uscis_initial_total: number | null;
   h1b_dependent_latest: boolean | null;
   willful_violator_ever: boolean;
+  cap_exempt_rule: string | null;
+};
+
+export type GroupMember = Employer & {
+  group_slug: string;
+  group_name: string;
+  evidence_url: string;
+  reviewed_on: string;
 };
 
 export const meta = cached("meta", async (): Promise<Record<string, string>> => {
@@ -98,7 +106,7 @@ export const employer = cached("employer", async (slug: string) => {
   const [e] = await sql<Employer>("SELECT * FROM filed.employers WHERE slug = $1", [slug]);
   if (!e) return null;
   const id = e.employer_id;
-  const [years, uscis, roles, top, aliases, signal, links, similar] = await Promise.all([
+  const [years, uscis, roles, top, aliases, signal, links, similar, group] = await Promise.all([
     sql<Row>("SELECT * FROM filed.lca_year WHERE employer_id = $1 ORDER BY fiscal_year", [id]),
     sql<Row>("SELECT * FROM filed.uscis_year WHERE employer_id = $1 ORDER BY fiscal_year", [id]),
     sql<Row>(
@@ -131,8 +139,34 @@ export const employer = cached("employer", async (slug: string) => {
           [e.naics, e.state, id],
         )
       : Promise.resolve([] as Employer[]),
+    groupMembers(
+      `(SELECT group_slug FROM filed.groups WHERE employer_id = $1)`,
+      [id],
+    ),
   ]);
-  return { e, years, uscis, roles, top, aliases, signal, links, similar };
+  return { e, years, uscis, roles, top, aliases, signal, links, similar, group };
+});
+
+function groupMembers(slugSql: string, args: unknown[]) {
+  return sql<GroupMember>(
+    `SELECT g.group_slug, g.group_name, g.evidence_url, g.reviewed_on, e.*
+       FROM filed.groups g JOIN filed.employers e USING (employer_id)
+      WHERE g.group_slug = ${slugSql}
+      ORDER BY e.certified_total DESC NULLS LAST, e.display_name`,
+    args,
+  );
+}
+
+/** A reviewed group of FEIN employers (data/parents.csv) with each member's LCA years. */
+export const group = cached("group", async (slug: string) => {
+  const members = await groupMembers("$1", [slug]);
+  if (members.length === 0) return null;
+  const years = await sql<Row & { employer_id: number }>(
+    `SELECT employer_id, fiscal_year, source_file, filed, certified FROM filed.lca_year
+      WHERE employer_id = ANY($1) ORDER BY fiscal_year`,
+    [members.map((m) => m.employer_id)],
+  );
+  return { members, years };
 });
 
 export const explore = cached(
@@ -175,4 +209,8 @@ export const employerSlugs = cached("employerSlugs", (chunk: number) =>
     "SELECT slug FROM filed.employers ORDER BY employer_id LIMIT $1 OFFSET $2",
     [SITEMAP_CHUNK, chunk * SITEMAP_CHUNK],
   ),
+);
+
+export const groupSlugs = cached("groupSlugs", () =>
+  sql<{ group_slug: string }>("SELECT DISTINCT group_slug FROM filed.groups ORDER BY 1"),
 );

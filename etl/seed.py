@@ -53,7 +53,8 @@ def build(con: duckdb.DuckDBPyConnection | None = None) -> duckdb.DuckDBPyConnec
     employers.resolve(con)
     uscis_join.load_raw(con, uscis_fixture_files(), record=False)
     uscis_join.match(con)
-    aggregate.build(con)
+    # A test-only parent map with one "reviewed" group, so the group page can be tested.
+    aggregate.build(con, irs_paths=[], parents=FIX / "parents.csv")
     return con
 
 

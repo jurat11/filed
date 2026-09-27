@@ -35,7 +35,7 @@ CODE: dict[str, list[str]] = {
     "wages": ["wages.py"],
     "resolve": ["employers.py", "names.py"],
     "uscis": ["uscis_join.py", "uscis_files.py", "names.py", "employers.py"],
-    "aggregate": ["aggregate.py", "soc.py"],
+    "aggregate": ["aggregate.py", "soc.py", "cap_exempt.py", "groups.py"],
     "load": ["load.py"],
 }
 
@@ -92,6 +92,10 @@ def raw_inputs(step: str) -> dict[str, str]:
         from etl import uscis_join
 
         paths = [p for _, p in uscis_join.present()]
+    elif step == "aggregate":
+        from etl import cap_exempt, groups
+
+        paths = [*cap_exempt.irs_files(), groups.PARENTS]
     else:
         return {}
     return {p.name: file_sha(p) for p in paths if p.exists()}
