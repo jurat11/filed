@@ -12,7 +12,8 @@ store needs no index and a re-downloaded file with the same bytes is never store
 
 Configuration (environment, never committed):
 
-    FILED_STORE_URL       s3://bucket/prefix   or   file:///absolute/path
+    FILED_STORE_URL       source:  (the government sites)   or
+                          s3://bucket/prefix   or   file:///absolute/path
     FILED_STORE_ENDPOINT  S3 endpoint for non-AWS services (R2, B2, MinIO); optional
     FILED_STORE_REGION    optional
     AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   read by boto3 for s3:// stores
@@ -28,6 +29,8 @@ import os
 import shutil
 import tempfile
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -64,6 +67,40 @@ class LocalStore:
         tmp = target.with_suffix(".part")
         shutil.copyfile(path, tmp)
         tmp.replace(target)
+
+
+class SourceStore:
+    """The government sites themselves, read only.
+
+    `filed fetch` with FILED_STORE_URL=source: downloads each raw file from the
+    `source_url` the manifest records for it, and `fetch` checks the SHA-256 before the
+    file replaces anything. So this needs no bucket and no credentials, and a file the
+    agency has republished under the same name fails the hash check loudly instead of
+    changing the site's numbers.
+
+    urllib's own User-Agent is used on purpose: dol.gov and uscis.gov sit behind Akamai,
+    which answers 403 to a request that claims to be a browser but sends none of a
+    browser's other headers, and serves a plainly identified client normally. Measured on
+    a GitHub runner on September 27, 2026: every DOL file and the USCIS file returned 200
+    to urllib, while a spoofed Chrome User-Agent was refused by both hosts (and curl's
+    User-Agent by uscis.gov). Do not add a User-Agent header here.
+    """
+
+    def __init__(self, files: dict, attempts: int = 4, wait: float = 3.0):
+        self.urls = {e["sha256"]: e["source_url"] for e in files.values()}
+        self.attempts, self.wait = attempts, wait
+
+    def has(self, sha: str) -> bool:
+        return sha in self.urls
+
+    def get(self, sha: str, dest: Path) -> None:
+        url = self.urls.get(sha)
+        if not url:
+            raise StoreError(f"no source_url in the manifest for {sha}")
+        download(url, dest, self.attempts, self.wait)
+
+    def put(self, path: Path, sha: str) -> None:
+        raise StoreError("source: is read only; nothing to push (docs/raw-store.md)")
 
 
 class S3Store:
@@ -104,11 +141,77 @@ class S3Store:
         )
 
 
-def open_store(url: str | None = None):
+def download(url: str, dest: Path, attempts: int = 4, wait: float = 3.0) -> None:
+    """Fetch one government file. Retries a rate limit or a server error, and fails loudly
+    on anything else. See SourceStore on why no User-Agent header is sent."""
+    last: Exception | None = None
+    for i in range(attempts):
+        try:
+            with urllib.request.urlopen(url, timeout=300) as r, dest.open("wb") as f:
+                shutil.copyfileobj(r, f, 1 << 20)
+            return
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            last = e
+            code = getattr(e, "code", None)
+            if code is not None and code not in (429, 500, 502, 503, 504):
+                break
+            if i + 1 < attempts:
+                time.sleep(wait * (i + 1))
+    raise StoreError(f"cannot download {url}: {last}")
+
+
+def declared() -> dict[str, str]:
+    """Raw file -> the government URL the code declares for it: every DOL release and
+    record layout in etl/columns.py, and the USCIS years published as a file. The USCIS
+    years that exist only in the hub's viewer are left out, since there is no file to
+    request (docs/download.md)."""
+    from etl.columns import LAYOUT_URLS, RAW_FILES
+    from etl.uscis_join import FILES as USCIS_FILES
+
+    out = {f"dol/{rf.name}": rf.url for rf in RAW_FILES}
+    out.update({f"dol/{name}": url for name, url in LAYOUT_URLS.items()})
+    out.update({f"uscis/{f.name}": f.url for f in USCIS_FILES if f.url.endswith(".csv")})
+    return out
+
+
+def fetch_new(raw: Path | None = None, files: dict | None = None) -> dict:
+    """Download files the code declares but the manifest does not list yet: a new
+    quarterly DOL release.
+
+    These have no recorded hash to check, because nothing has read them before. `filed
+    ingest` records each one's SHA-256, size and row count in the manifest, the row count
+    check and `scripts/reconcile.py` then have to pass, and the committed manifest pins the
+    bytes from then on (`fetch` refuses anything else)."""
+    raw = raw or manifest.RAW
+    known = set(_entries(files))
+    done = {"new": [], "already_local": 0}
+    for rel, url in sorted(declared().items()):
+        if rel in known:
+            continue
+        dest = raw / rel
+        if dest.exists():
+            done["already_local"] += 1
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=dest.parent, delete=False) as t:
+            tmp = Path(t.name)
+        try:
+            download(url, tmp)
+            tmp.replace(dest)
+        finally:
+            tmp.unlink(missing_ok=True)
+        done["new"].append(rel)
+        log.info("downloaded %s (not in the manifest yet) from %s", rel, url)
+    return done
+
+
+def open_store(url: str | None = None, files: dict | None = None):
     url = url or os.environ.get("FILED_STORE_URL")
     if not url:
-        raise StoreError("FILED_STORE_URL is not set (s3://bucket/prefix or file:///path)")
+        raise StoreError("FILED_STORE_URL is not set (source:, s3://bucket/prefix, file:///path)")
     u = urlparse(url)
+    if u.scheme == "source":
+        return SourceStore(_entries(files))
     if u.scheme == "file":
         return LocalStore(Path(u.path))
     if u.scheme == "s3":
@@ -123,7 +226,7 @@ def _entries(files: dict | None) -> dict:
 def fetch(store=None, raw: Path | None = None, files: dict | None = None) -> dict:
     """Make data/raw/ match the manifest: download every file that is missing or whose
     hash differs, verifying the hash of each download before it replaces anything."""
-    store = store or open_store()
+    store = store or open_store(files=files)
     raw = raw or manifest.RAW
     done = {"present": 0, "downloaded": 0, "missing_from_store": []}
     for rel, e in sorted(_entries(files).items()):
