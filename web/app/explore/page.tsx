@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { int, usd } from "@/lib/format";
-import { explore, LEVELS, lcaYears, parseExplore, ROLE_GROUPS } from "@/lib/queries";
+import { explore, LEVELS, lcaYears, parseExplore, ROLE_GROUPS, uscisYears } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Explore" };
@@ -17,8 +17,10 @@ function qs(sp: SP, patch: Record<string, string>) {
 
 export default async function Explore({ searchParams }: { searchParams: Promise<SP> }) {
   const sp = await searchParams;
-  const p = parseExplore(sp);
-  const [rows, years] = await Promise.all([explore(p), lcaYears()]);
+  const [years, uYears] = await Promise.all([lcaYears(), uscisYears()]);
+  const p = parseExplore(sp, years);
+  const rows = await explore(p, 200);
+  const uLabel = uYears.map((y) => `FY${y}`).join(", ");
   const box = "rounded-md border border-line bg-surface px-2 py-1.5";
 
   return (
@@ -92,7 +94,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                 ["name", "Employer"],
                 ["certified", "Certified LCAs"],
                 ["wage", "Mean offered wage"],
-                ["uscis", "USCIS initial approvals, FY2023"],
+                ["uscis", `USCIS initial approvals, ${uLabel}`],
               ].map(([k, label]) => (
                 <th key={k} className={`py-2 font-normal ${k === "name" ? "" : "text-right"}`}>
                   <Link href={`/explore?${qs(sp, { sort: k })}`} className={p.sort === k ? "text-ink underline" : "hover:text-ink"}>
@@ -122,7 +124,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
       </div>
       <p className="mt-4 text-xs text-muted">
         Source: DOL LCA disclosure files, certified cases only; a dash in the USCIS column means no
-        USCIS FY2023 record matched the employer; mean wage over certified full-time
+        USCIS {uLabel} record matched the employer; mean wage over certified full-time
         LCAs with a valid annual wage. <Link href="/sources" className="underline">Sources</Link>
       </p>
     </div>

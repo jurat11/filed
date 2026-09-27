@@ -15,6 +15,7 @@ import json
 import logging
 import os
 
+import duckdb
 import psycopg
 
 from etl import ingest, manifest
@@ -49,19 +50,56 @@ INDEXES = [
 ]
 
 PG_TYPES = {
-    "INTEGER": "integer", "BIGINT": "bigint", "HUGEINT": "numeric", "DOUBLE": "double precision",
-    "VARCHAR": "text", "BOOLEAN": "boolean", "DATE": "date",
+    "TINYINT": "smallint", "SMALLINT": "smallint", "INTEGER": "integer", "BIGINT": "bigint",
+    "UTINYINT": "smallint", "USMALLINT": "integer", "UINTEGER": "bigint", "UBIGINT": "numeric",
+    "HUGEINT": "numeric", "FLOAT": "real", "DOUBLE": "double precision", "VARCHAR": "text",
+    "BOOLEAN": "boolean", "DATE": "date", "TIMESTAMP": "timestamp",
+    "TIMESTAMP WITH TIME ZONE": "timestamptz",
 }  # fmt: skip
 
 
+class UnsupportedType(TypeError):
+    pass
+
+
 def pg_type(duck: str) -> str:
-    return "numeric" if duck.startswith("DECIMAL") else PG_TYPES[duck]
+    """Postgres column type for a DuckDB column type. Unknown types fail the load instead
+    of being guessed."""
+    if duck.startswith("DECIMAL"):
+        return "numeric" + duck[len("DECIMAL") :]
+    if duck.endswith("[]"):
+        return pg_type(duck[:-2]) + "[]"
+    if duck not in PG_TYPES:
+        raise UnsupportedType(f"no Postgres type for DuckDB type {duck}")
+    return PG_TYPES[duck]
+
+
+def copy_rows(cur: psycopg.Cursor, table: str, names: str, rel) -> None:
+    with cur.copy(f"COPY {table} ({names}) FROM STDIN") as cp:
+        while batch := rel.fetchmany(50_000):
+            for row in batch:
+                cp.write_row(row)
+
+
+def database_url() -> str:
+    return os.environ.get("DATABASE_URL_DIRECT") or os.environ["DATABASE_URL"]
 
 
 def run() -> dict:
-    url = os.environ.get("DATABASE_URL_DIRECT") or os.environ["DATABASE_URL"]
-    duck = ingest.connect()
-    schema = "filed_" + dt.datetime.now(dt.UTC).strftime("%Y%m%d%H%M%S")
+    return load(ingest.connect(), database_url())
+
+
+def load(
+    duck: duckdb.DuckDBPyConnection,
+    url: str,
+    files: dict | None = None,
+    target: str = "filed",
+) -> dict:
+    """Copy the aggregate tables from `duck` into a new schema and swap it in as `target`.
+
+    `files` is the manifest's file map for the sources table (default: data/manifest.json).
+    """
+    schema = target + "_" + dt.datetime.now(dt.UTC).strftime("%Y%m%d%H%M%S%f")
     counts = {}
     with psycopg.connect(url) as pg, pg.cursor() as cur:
         cur.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
@@ -71,11 +109,7 @@ def run() -> dict:
             ddl = ", ".join(f'"{c[0]}" {pg_type(c[1])}' for c in cols)
             cur.execute(f"CREATE TABLE {schema}.{dst} ({ddl})")
             names = ", ".join(f'"{c[0]}"' for c in cols)
-            rel = duck.execute(f"SELECT {names} FROM {src}")
-            with cur.copy(f"COPY {schema}.{dst} ({names}) FROM STDIN") as cp:
-                while batch := rel.fetchmany(50_000):
-                    for row in batch:
-                        cp.write_row(row)
+            copy_rows(cur, f"{schema}.{dst}", names, duck.execute(f"SELECT {names} FROM {src}"))
             counts[dst] = duck.execute(f"SELECT count(*) FROM {src}").fetchone()[0]
             cur.execute(f"SELECT count(*) FROM {schema}.{dst}")
             loaded = cur.fetchone()[0]
@@ -84,7 +118,7 @@ def run() -> dict:
             log.info("loaded %s: %d rows", dst, loaded)
 
         # Sources and metadata for /sources.
-        m = manifest.load()["files"]
+        m = manifest.load()["files"] if files is None else files
         cur.execute(f"""CREATE TABLE {schema}.sources (file text, kind text, fiscal_year int,
             quarter int, source_url text, downloaded date, sha256 text, bytes bigint,
             raw_rows bigint, loaded_rows bigint, decision_date_min date, decision_date_max date)""")
@@ -101,7 +135,14 @@ def run() -> dict:
         meta = {
             "loaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
             "lca_years": json.dumps(years),
-            "uscis_years": json.dumps([2023]),
+            "uscis_years": json.dumps(
+                [
+                    r[0]
+                    for r in duck.execute(
+                        "SELECT DISTINCT fiscal_year FROM uscis_year ORDER BY 1"
+                    ).fetchall()
+                ]
+            ),  # fmt: skip
             "entry_years": duck.execute("SELECT any_value(years) FROM agg_entry_signal").fetchone()[
                 0
             ],
@@ -111,8 +152,8 @@ def run() -> dict:
         for ix in INDEXES:
             cur.execute(ix.format(s=schema))
         cur.execute(f"ANALYZE {schema}.lca_cube")
-        cur.execute("DROP SCHEMA IF EXISTS filed CASCADE")
-        cur.execute(f"ALTER SCHEMA {schema} RENAME TO filed")
+        cur.execute(f"DROP SCHEMA IF EXISTS {target} CASCADE")
+        cur.execute(f"ALTER SCHEMA {schema} RENAME TO {target}")
         pg.commit()
-    log.info("swapped %s in as filed", schema)
+    log.info("swapped %s in as %s", schema, target)
     return counts

@@ -1,16 +1,8 @@
 import "server-only";
 import { sql } from "./db";
+import { type ExploreParams, type ExploreRow, exploreSql } from "./explore";
 
-export const ROLE_GROUPS = [
-  "Software engineering",
-  "Data and analytics",
-  "Finance",
-  "Quant and actuarial",
-  "IT and systems",
-  "Engineering",
-  "Other",
-];
-export const LEVELS = ["I", "II", "III", "IV"];
+export { LEVELS, parseExplore, ROLE_GROUPS } from "./explore";
 
 export type Employer = {
   employer_id: number;
@@ -21,9 +13,10 @@ export type Employer = {
   state: string | null;
   has_lca: boolean;
   has_uscis: boolean;
-  lca_rows: number;
-  certified_total: number;
-  uscis_initial_total: number;
+  // null when the employer has no LCA match (USCIS only) or no USCIS match: missing, not 0.
+  lca_rows: number | null;
+  certified_total: number | null;
+  uscis_initial_total: number | null;
   h1b_dependent_latest: boolean | null;
   willful_violator_ever: boolean;
 };
@@ -34,7 +27,11 @@ export async function meta(): Promise<Record<string, string>> {
 }
 
 export async function lcaYears(): Promise<number[]> {
-  return JSON.parse((await meta()).lca_years);
+  return JSON.parse((await meta()).lca_years ?? "[]");
+}
+
+export async function uscisYears(): Promise<number[]> {
+  return JSON.parse((await meta()).uscis_years ?? "[]");
 }
 
 export async function search(q: string) {
@@ -70,75 +67,9 @@ export async function employer(slug: string) {
   return { e, years, uscis, roles, top, aliases, signal };
 }
 
-export type ExploreParams = {
-  role: string[];
-  state: string[];
-  level: string[];
-  fy: string; // a fiscal year or "all"
-  min: number;
-  hideDependent: boolean;
-  sort: string;
-};
-
-const SORTS: Record<string, string> = {
-  certified: "certified DESC",
-  wage: "avg_wage DESC NULLS LAST",
-  uscis: "uscis_initial_total DESC NULLS LAST",
-  name: "display_name ASC",
-};
-
-export function parseExplore(sp: Record<string, string | string[] | undefined>): ExploreParams {
-  const list = (k: string) =>
-    ([] as string[]).concat(sp[k] ?? []).flatMap((v) => v.split(",")).filter(Boolean);
-  return {
-    role: list("role").filter((r) => ROLE_GROUPS.includes(r)),
-    state: list("state").map((s) => s.toUpperCase().slice(0, 2)),
-    level: list("level").filter((l) => LEVELS.includes(l)),
-    fy: typeof sp.fy === "string" && /^(\d{4}|all)$/.test(sp.fy) ? sp.fy : "all",
-    min: Math.max(0, Number(sp.min) || 0),
-    hideDependent: sp.hide_dependent === "1",
-    sort: typeof sp.sort === "string" && sp.sort in SORTS ? sp.sort : "certified",
-  };
-}
-
-export async function explore(p: ExploreParams, limit = 200) {
-  const where: string[] = [];
-  const args: unknown[] = [];
-  const add = (clause: string, v: unknown) => {
-    args.push(v);
-    where.push(clause.replace("?", `$${args.length}`));
-  };
-  if (p.fy !== "all") add("c.fiscal_year = ?", Number(p.fy));
-  if (p.role.length) add("c.role_group = ANY(?)", p.role);
-  if (p.state.length) add("c.worksite_state = ANY(?)", p.state);
-  if (p.level.length) add("c.wage_level = ANY(?)", p.level);
-  args.push(p.min);
-  const minArg = `$${args.length}`;
-  const rows = await sql<{
-    slug: string;
-    display_name: string;
-    state: string | null;
-    certified: number;
-    wage_rows: number;
-    avg_wage: number | null;
-    uscis_initial_total: number | null;
-    h1b_dependent_latest: boolean | null;
-  }>(
-    `SELECT e.slug, e.display_name, e.state,
-            CASE WHEN e.has_uscis THEN e.uscis_initial_total END AS uscis_initial_total,
-            e.h1b_dependent_latest,
-            sum(c.certified)::int AS certified, sum(c.wage_rows)::int AS wage_rows,
-            round(sum(c.wage_sum) / nullif(sum(c.wage_rows), 0)) AS avg_wage
-       FROM filed.lca_cube c JOIN filed.employers e USING (employer_id)
-      ${where.length ? "WHERE " + where.join(" AND ") : ""}
-      ${p.hideDependent ? (where.length ? "AND" : "WHERE") + " e.h1b_dependent_latest IS NOT TRUE" : ""}
-      GROUP BY 1, 2, 3, 4, 5
-     HAVING sum(c.certified) >= ${minArg}
-      ORDER BY ${SORTS[p.sort]}, e.display_name
-      LIMIT ${Math.min(limit, 5000)}`,
-    args,
-  );
-  return rows;
+export async function explore(p: ExploreParams, limit: number, offset = 0) {
+  const { text, values } = exploreSql(p, limit, offset);
+  return sql<ExploreRow>(text, values);
 }
 
 export async function sources() {

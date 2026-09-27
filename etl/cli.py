@@ -12,7 +12,7 @@ def main() -> None:
     p = argparse.ArgumentParser(prog="filed")
     p.add_argument(
         "step",
-        choices=["ingest", "wages", "resolve", "uscis", "aggregate", "load", "all"],
+        choices=["ingest", "wages", "resolve", "uscis", "aggregate", "load", "all", "seed"],
     )
     p.add_argument("--restage", action="store_true", help="re-read raw xlsx even if staged")
     args = p.parse_args()
@@ -51,6 +51,10 @@ def _run(step: str, args: argparse.Namespace):
         from etl import aggregate
 
         return aggregate.run()
+    if step == "seed":
+        from etl import seed
+
+        return seed.run()
     if step == "load":
         from etl import load
 

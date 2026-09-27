@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { StackedBar } from "@/components/Bar";
 import { SourceTag } from "@/components/SourceTag";
-import { int, n, pct, usd } from "@/lib/format";
-import { employer, ROLE_GROUPS } from "@/lib/queries";
+import { int, MISSING, n, pct, usd } from "@/lib/format";
+import { employer, ROLE_GROUPS, uscisYears } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -32,9 +32,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default async function EmployerPage({ params }: { params: Promise<{ slug: string }> }) {
-  const d = await employer((await params).slug);
+  const [d, uYears] = await Promise.all([employer((await params).slug), uscisYears()]);
   if (!d) notFound();
   const { e, years, uscis, roles, top, aliases, signal } = d;
+  const uLabel = uYears.map((y) => `FY${y}`).join(", ") || "none";
   const latest2 = years.slice(-2) as Row[];
   const latest = years.at(-1) as Row | undefined;
   const lastFys = latest2.map((y) => n(y.fiscal_year));
@@ -186,10 +187,12 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 </p>
                 <p className="mt-2 text-sm">
                   USCIS initial approvals, same years:{" "}
-                  {sig.uscis_initial === null ? (
+                  {!sig.uscis_years_loaded ? (
                     <span className="text-muted">
-                      not loaded (USCIS publishes files through FY2023 only)
+                      not loaded (USCIS years loaded: {uLabel})
                     </span>
+                  ) : sig.uscis_initial === null ? (
+                    <span className="text-muted">no USCIS record matched this employer</span>
                   ) : (
                     int(sig.uscis_initial)
                   )}
@@ -232,14 +235,16 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
       <Section title="USCIS petition decisions">
         {uscis.length === 0 ? (
           <p className="text-sm text-muted">
-            No USCIS Data Hub record matched this employer for FY2023, the latest year loaded.
+            No USCIS Data Hub record matched this employer. USCIS years loaded: {uLabel}.
           </p>
         ) : (
-          <table className="num w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="num w-full min-w-[640px] text-sm">
             <thead className="text-left text-muted">
               <tr className="border-b border-line">
                 <th className="py-2 font-normal">Fiscal year</th>
                 <th className="text-right font-normal">Initial approved</th>
+                <th className="text-right font-normal">of which new employment</th>
                 <th className="text-right font-normal">Initial denied</th>
                 <th className="text-right font-normal">Continuing approved</th>
                 <th className="text-right font-normal">Continuing denied</th>
@@ -251,6 +256,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 <tr key={String(u.fiscal_year)} className="border-b border-line">
                   <td className="py-2">FY{String(u.fiscal_year)}</td>
                   <td className="text-right">{int(u.initial_approvals)}</td>
+                  <td className="text-right">{int(u.new_employment_approvals)}</td>
                   <td className="text-right">{int(u.initial_denials)}</td>
                   <td className="text-right">{int(u.continuing_approvals)}</td>
                   <td className="text-right">{int(u.continuing_denials)}</td>
@@ -261,6 +267,14 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
               ))}
             </tbody>
           </table>
+          </div>
+        )}
+        {uscis.length > 0 && (
+          <p className="mt-2 text-xs text-muted">
+            Initial = New Employment + New Concurrent (a change of status from F-1 counts as New
+            Employment). The FY2023 file reports initial and continuing only, so New Employment is
+            shown as {MISSING} for it.
+          </p>
         )}
       </Section>
 

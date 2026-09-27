@@ -13,6 +13,7 @@ export default async function Sources() {
   const [files, m] = await Promise.all([sources(), meta()]);
   const data = files.filter((f) => f.kind !== "record_layout");
   const layouts = files.filter((f) => f.kind === "record_layout");
+  const uLabel = (JSON.parse(m.uscis_years ?? "[]") as number[]).map((y) => `FY${y}`).join(", ") || "none";
 
   return (
     <div className="max-w-4xl">
@@ -97,8 +98,9 @@ export default async function Sources() {
           <dd className="text-muted">
             From the USCIS H-1B Employer Data Hub: first decisions on petitions, counted in
             workers. Initial covers new employment (including a change of status from F-1);
-            continuing covers extensions, amendments and changes of employer. Only FY2023 is
-            loaded: USCIS publishes later years only in its interactive viewer.
+            continuing covers extensions, amendments and changes of employer. Years loaded:{" "}
+            {uLabel}. USCIS publishes files through FY2023; later years come from its
+            interactive viewer when a download has been added.
           </dd>
         </div>
         <div>
@@ -122,7 +124,7 @@ export default async function Sources() {
       <h2 className="mt-10 text-lg font-semibold">Limitations</h2>
       <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-muted">
         <li>An LCA is filed before a petition. It shows intent to hire, not an approved visa.</li>
-        <li>USCIS data lags; the latest USCIS file loaded is FY2023.</li>
+        <li>USCIS data lags; USCIS years loaded: {uLabel}.</li>
         <li>
           Matching by FEIN and name can split one company across legal entities (Amazon.com
           Services and Amazon Web Services are separate employers) or miss a USCIS record.

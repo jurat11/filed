@@ -13,61 +13,115 @@ Unmatched USCIS employers get their own employer rows, labeled as having no LCA 
 from __future__ import annotations
 
 import csv
+import io
 import logging
+from dataclasses import dataclass
 from pathlib import Path
 
 import duckdb
+import pandas as pd
 
-from etl import ingest, manifest
+from etl import ingest, manifest, uscis_files
 from etl.employers import slugify
 from etl.names import normalize_name
 
 log = logging.getLogger(__name__)
 
 RAW_USCIS = manifest.RAW / "uscis"
-FILES = {
-    2023: (
+HUB_URL = "https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub"
+
+
+@dataclass(frozen=True)
+class UscisFile:
+    fiscal_year: int
+    name: str
+    url: str
+    required: bool = False
+
+
+# FY2023 is the last year USCIS publishes as a file. Later years come from the hub's
+# viewer (Crosstab or Data download, saved under these names; docs/download.md). They are
+# loaded when present, so a new year needs only the file and no code change.
+FILES: list[UscisFile] = [
+    UscisFile(
+        2023,
         "h1b_datahubexport-2023.csv",
         "https://www.uscis.gov/sites/default/files/document/data/h1b_datahubexport-2023.csv",
+        required=True,
     ),
-}
+    *[UscisFile(fy, f"uscis_hub_FY{fy}.csv", HUB_URL) for fy in (2024, 2025, 2026)],
+]
 
 
 def csv_rows(path: Path) -> int:
-    with path.open(newline="", encoding="utf-8-sig") as f:
-        return sum(1 for _ in csv.reader(f)) - 1
+    """Data rows in a USCIS file, counted independently of the parser: non-empty records
+    after the header."""
+    text = uscis_files.read_text(path)
+    first = text.split("\n", 1)[0]
+    delim = "\t" if first.count("\t") > first.count(",") else ","
+    records = csv.reader(io.StringIO(text), delimiter=delim)
+    return sum(1 for r in records if any(c.strip() for c in r)) - 1
 
 
-def load_raw(con: duckdb.DuckDBPyConnection) -> None:
-    parts = []
-    for fy, (name, url) in FILES.items():
-        p = RAW_USCIS / name
+def present(
+    files: list[UscisFile] = FILES, raw_dir: Path = RAW_USCIS
+) -> list[tuple[UscisFile, Path]]:
+    out = []
+    for f in files:
+        p = raw_dir / f.name
+        if p.exists():
+            out.append((f, p))
+        elif f.required:
+            raise FileNotFoundError(p)
+    return out
+
+
+def load_raw(
+    con: duckdb.DuckDBPyConnection,
+    files: list[tuple[UscisFile, Path]] | None = None,
+    record: bool = True,
+) -> dict[str, str]:
+    """Parse every USCIS file into uscis_raw, checking row counts. Returns file -> layout."""
+    files = present() if files is None else files
+    frames, layouts = [], {}
+    for f, p in files:
+        parsed = uscis_files.parse(p, f.fiscal_year)
         raw = csv_rows(p)
-        sql = f"""
-            SELECT {fy} AS fiscal_year, '{name}' AS source_file,
-                   nullif(trim("Employer"), '') AS employer_name,
-                   upper(nullif(trim("State"), '')) AS state,
-                   upper(nullif(trim("City"), '')) AS city,
-                   lpad(nullif(trim("Tax ID"), ''), 4, '0') AS tax4,
-                   TRY_CAST("Initial Approval" AS INT) AS initial_approvals,
-                   TRY_CAST("Initial Denial" AS INT) AS initial_denials,
-                   TRY_CAST("Continuing Approval" AS INT) AS continuing_approvals,
-                   TRY_CAST("Continuing Denial" AS INT) AS continuing_denials
-            FROM read_csv('{p}', all_varchar = true, header = true)
-        """
-        loaded = con.execute(f"SELECT count(*) FROM ({sql})").fetchone()[0]
-        if loaded != raw:
-            raise ingest.RowCountError(f"{name}: raw {raw} rows, loaded {loaded}")
-        manifest.record(
-            p, url, kind="uscis", fiscal_year=fy, quarter=4, raw_rows=raw, loaded_rows=loaded
-        )
-        parts.append(sql)
-    con.execute("CREATE OR REPLACE TABLE uscis_raw AS " + " UNION ALL ".join(parts))
+        if parsed.raw_rows != raw:
+            raise ingest.RowCountError(f"{f.name}: raw {raw} rows, parsed {parsed.raw_rows}")
+        years = {r["fiscal_year"] for r in parsed.rows}
+        if years - {f.fiscal_year}:
+            raise ValueError(f"{f.name}: fiscal years {sorted(years)}, expected {f.fiscal_year}")
+        df = pd.DataFrame(parsed.rows, columns=uscis_files.FIELDS)
+        df.insert(1, "source_file", f.name)
+        frames.append(df)
+        layouts[f.name] = parsed.layout
+        if record:
+            manifest.record(
+                p, f.url, kind="uscis", fiscal_year=f.fiscal_year, quarter=4, raw_rows=raw,
+                loaded_rows=parsed.raw_rows, layout=parsed.layout,
+            )  # fmt: skip
+    ints = [c for c in uscis_files.FIELDS if c.endswith(("approvals", "denials"))]
+    con.register("uscis_rows_df", pd.concat(frames, ignore_index=True))
+    casts = ", ".join(f"CAST({c} AS INT) AS {c}" for c in ints)
+    con.execute(f"""
+        CREATE OR REPLACE TABLE uscis_raw AS
+        SELECT CAST(fiscal_year AS INT) AS fiscal_year, CAST(source_file AS VARCHAR) AS source_file,
+               CAST(employer_name AS VARCHAR) AS employer_name, CAST(state AS VARCHAR) AS state,
+               CAST(city AS VARCHAR) AS city, CAST(zip AS VARCHAR) AS zip,
+               CAST(naics AS VARCHAR) AS naics, CAST(tax4 AS VARCHAR) AS tax4, {casts}
+        FROM uscis_rows_df
+    """)
+    con.unregister("uscis_rows_df")
     names = [r[0] for r in con.execute(
         "SELECT DISTINCT employer_name FROM uscis_raw WHERE employer_name IS NOT NULL"
     ).fetchall()]  # fmt: skip
     con.execute("CREATE OR REPLACE TABLE uscis_norm (raw VARCHAR, norm VARCHAR)")
-    con.executemany("INSERT INTO uscis_norm VALUES (?, ?)", [(n, normalize_name(n)) for n in names])
+    if names:
+        con.executemany(
+            "INSERT INTO uscis_norm VALUES (?, ?)", [(n, normalize_name(n)) for n in names]
+        )
+    return layouts
 
 
 def match(con: duckdb.DuckDBPyConnection) -> dict:
@@ -106,6 +160,8 @@ def match(con: duckdb.DuckDBPyConnection) -> dict:
                      WHEN n_cand = 1 AND fein IS NULL THEN 'name_state'
                      WHEN n_cand = 1 AND tax_ok THEN 'name_state_tax4'
                      WHEN n_cand = 1 THEN 'rejected_tax4_differs'
+                     WHEN count(*) FILTER (WHERE tax_ok)
+                          OVER (PARTITION BY norm, state, tax4) = 1 THEN 'several_candidates_tax4'
                      ELSE 'several_candidates'
                    END AS method
             FROM cand
@@ -141,7 +197,8 @@ def match(con: duckdb.DuckDBPyConnection) -> dict:
         "CREATE OR REPLACE TABLE uscis_only (norm VARCHAR, state VARCHAR, tax4 VARCHAR, "
         "employer_id INT, slug VARCHAR)"
     )
-    con.executemany("INSERT INTO uscis_only VALUES (?, ?, ?, ?, ?)", new)
+    if new:
+        con.executemany("INSERT INTO uscis_only VALUES (?, ?, ?, ?, ?)", new)
     con.execute("""
         CREATE OR REPLACE TABLE uscis_employer AS
         SELECT m.*, coalesce(m.employer_id, o.employer_id) AS final_id,
@@ -155,7 +212,8 @@ def match(con: duckdb.DuckDBPyConnection) -> dict:
                sum(u.initial_approvals)::INT AS initial_approvals,
                sum(u.initial_denials)::INT AS initial_denials,
                sum(u.continuing_approvals)::INT AS continuing_approvals,
-               sum(u.continuing_denials)::INT AS continuing_denials
+               sum(u.continuing_denials)::INT AS continuing_denials,
+               sum(u.new_employment_approvals)::INT AS new_employment_approvals
         FROM uscis_raw u JOIN uscis_norm n ON n.raw = u.employer_name
         JOIN uscis_employer e ON e.norm = n.norm AND e.state IS NOT DISTINCT FROM u.state
                              AND e.tax4 IS NOT DISTINCT FROM u.tax4
@@ -163,7 +221,8 @@ def match(con: duckdb.DuckDBPyConnection) -> dict:
     """)
     s = con.execute("""
         SELECT count(*), count(*) FILTER (WHERE matched),
-               sum(approvals), sum(approvals) FILTER (WHERE matched)
+               coalesce(sum(approvals), 0),
+               coalesce(sum(approvals) FILTER (WHERE matched), 0)
         FROM uscis_employer
     """).fetchone()
     methods = con.execute(
@@ -182,12 +241,14 @@ def match(con: duckdb.DuckDBPyConnection) -> dict:
 def write_report(stats: dict, path: Path) -> None:
     n, m, a, am = (stats[k] for k in ("uscis_employers", "matched", "approvals",
                                        "approvals_matched"))  # fmt: skip
+    layouts = stats.get("layouts", {})
+    files = ", ".join(f"{k} ({v})" for k, v in layouts.items()) or "none"
     lines = [
         "# USCIS to LCA join",
         "",
-        "Generated by `uv run filed uscis`. USCIS H-1B Employer Data Hub, FY2023 export",
-        "(the latest year USCIS publishes as a file; later years are only in the hub's",
-        "interactive view and are not loaded).",
+        "Generated by `uv run filed uscis`. USCIS H-1B Employer Data Hub files loaded:",
+        f"{files}. FY2023 is the latest year USCIS publishes as a file; later years",
+        "are loaded when a download from the hub's viewer is saved in data/raw/uscis/.",
         "",
         "A USCIS employer is one normalized name, state and tax ID (last 4 digits). It matches",
         "an LCA employer on normalized name plus employer state, with the last 4 FEIN digits",
@@ -214,8 +275,9 @@ def write_report(stats: dict, path: Path) -> None:
 
 def run() -> dict:
     con = ingest.connect()
-    load_raw(con)
+    layouts = load_raw(con)
     stats = match(con)
+    stats["layouts"] = layouts
     (manifest.ROOT / "eval").mkdir(exist_ok=True)
     write_report(stats, manifest.ROOT / "eval" / "join.md")
     log.info("uscis: %s", stats)
