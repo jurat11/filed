@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     env:
-      FILED_STORE_URL: source:
+      FILED_STORE_URL: "source:"
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
