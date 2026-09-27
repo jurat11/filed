@@ -1,8 +1,14 @@
 name: etl
 
-# Rebuild the data from the raw store and load Neon. Reads secrets only from Actions
-# secrets (docs/operations.md). Fails, before touching Neon, on any row count mismatch
-# (ingest, USCIS and load assert them) or any reconcile difference.
+# Rebuild the data and load Neon, with nothing needed from anyone's machine. The raw files
+# are downloaded from dol.gov and uscis.gov (FILED_STORE_URL defaults to `source:`), and
+# every file's SHA-256 is checked against data/manifest.json before it is used, so a
+# republished file fails the run instead of changing the site's numbers. Set the
+# FILED_STORE_* secrets to read a bucket copy instead (docs/raw-store.md).
+#
+# Reads secrets only from Actions secrets (docs/operations.md). Fails, before touching
+# Neon, on any row count mismatch (ingest, USCIS and load assert them) or any reconcile
+# difference.
 on:
   workflow_dispatch:
     inputs:
@@ -29,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      FILED_STORE_URL: ${{ secrets.FILED_STORE_URL }}
+      FILED_STORE_URL: ${{ secrets.FILED_STORE_URL || 'source:' }}
       FILED_STORE_ENDPOINT: ${{ secrets.FILED_STORE_ENDPOINT }}
       FILED_STORE_REGION: ${{ secrets.FILED_STORE_REGION }}
       AWS_ACCESS_KEY_ID: ${{ secrets.FILED_STORE_ACCESS_KEY_ID }}
@@ -39,13 +45,18 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv sync --locked --extra store
 
-      - name: Check secrets
+      - name: Where the raw files come from
         run: |
-          missing=""
-          for v in FILED_STORE_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
-            [ -n "${!v}" ] || missing="$missing $v"
-          done
-          [ -z "$missing" ] || { echo "::error::missing secrets:$missing (docs/operations.md)"; exit 1; }
+          echo "FILED_STORE_URL=$FILED_STORE_URL"
+          case "$FILED_STORE_URL" in
+            source:*) echo "Downloading from the agencies; no bucket needed." ;;
+            s3://*)
+              missing=""
+              for v in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+                [ -n "${!v}" ] || missing="$missing $v"
+              done
+              [ -z "$missing" ] || { echo "::error::missing secrets:$missing (docs/operations.md)"; exit 1; } ;;
+          esac
 
       # Staged Parquet is keyed by the raw files' hashes, so an unchanged year is not re-read
       # from xlsx (the slow part). ingest re-stages any file whose hash differs anyway.
@@ -58,7 +69,7 @@ jobs:
           key: staged-${{ steps.rawkey.outputs.key }}
           restore-keys: staged-
 
-      - name: Restore data/raw from the store
+      - name: Restore data/raw (downloads about 1.8 GB, hash checked against the manifest)
         run: uv run filed fetch
 
       - name: Build (every step whose inputs changed)

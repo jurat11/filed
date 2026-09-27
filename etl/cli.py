@@ -4,7 +4,9 @@ filed all            run every step whose inputs changed (docs/decisions.md D26)
 filed all --force    run every step
 filed status         show which steps are current and which would run
 filed <step>         run one step, whatever its fingerprint says
-filed fetch          restore data/raw/ from the raw data store (etl/store.py)
+filed fetch          restore data/raw/: download every file the manifest lists from
+                     FILED_STORE_URL (`source:` = the agencies themselves), check its
+                     hash, then fetch any newly declared release (etl/store.py)
 filed push-raw       upload data/raw/ files missing from the store
 filed seed           build the fixture pipeline into DATABASE_URL (tests only)
 """
@@ -122,7 +124,7 @@ def _run(step: str, args: argparse.Namespace, fingerprint: str | None = None):
     if step == "fetch":
         from etl import store
 
-        return store.fetch()
+        return store.fetch() | store.fetch_new()
     if step == "push-raw":
         from etl import store
 
