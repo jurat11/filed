@@ -54,15 +54,20 @@ etl/load.py      COPY into a new Neon schema, swap it in inside one transaction
 web/             Next.js 15 server components reading Postgres (pg_trgm search)
 ```
 
-Run the pipeline (files listed in [docs/download.md](docs/download.md) must be in `data/raw/`):
+Run the pipeline (files listed in [docs/download.md](docs/download.md) must be in `data/raw/`, or restored with `uv run filed fetch` from the raw store, [docs/raw-store.md](docs/raw-store.md)):
 
 ```bash
 uv sync
-uv run filed ingest && uv run filed wages && uv run filed resolve
-uv run filed uscis && uv run filed aggregate
-DATABASE_URL=... uv run filed load
+uv run filed status                  # which steps are current, which will run
+uv run filed all --no-load           # every step whose inputs changed
+uv run python scripts/reconcile.py --against duckdb    # must print 0
+DATABASE_URL=... uv run filed all    # load Neon (and revalidate the site if configured)
 uv run python scripts/reconcile.py
 ```
+
+The monthly `etl` workflow does the same in GitHub Actions, and `release-watch` opens an
+issue when DOL or USCIS publish newer files. See [docs/operations.md](docs/operations.md)
+and, for database size, [docs/postgres-growth.md](docs/postgres-growth.md).
 
 ## Tests
 

@@ -1,0 +1,54 @@
+name: release-watch
+
+# Look for DOL and USCIS files newer than the ones loaded and open an issue listing them.
+# It downloads nothing: dol.gov serves files only to a browser, so a person downloads them.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * 1" # Mondays 14:00 UTC
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+        working-directory: web
+
+      - name: Read the listing pages in a browser
+        working-directory: web
+        run: |
+          node scripts/fetch-page.mjs https://www.dol.gov/agencies/eta/foreign-labor/performance "$RUNNER_TEMP/dol.html"
+          node scripts/fetch-page.mjs https://www.uscis.gov/archive/h-1b-employer-data-hub-files "$RUNNER_TEMP/uscis.html"
+
+      - name: Compare with the loaded files
+        run: uv run python scripts/watch_releases.py "$RUNNER_TEMP/dol.html" "$RUNNER_TEMP/uscis.html" --out "$RUNNER_TEMP/release.md"
+
+      - name: Open an issue (once per set of files)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          f="$RUNNER_TEMP/release.md"
+          [ -s "$f" ] || { echo "No new files."; exit 0; }
+          title="$(head -n 1 "$f")"
+          if gh issue list --state open --search "in:title \"$title\"" --json title --jq '.[].title' | grep -Fxq "$title"; then
+            echo "An open issue already lists these files."
+            exit 0
+          fi
+          tail -n +3 "$f" > "$RUNNER_TEMP/body.md"
+          gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"

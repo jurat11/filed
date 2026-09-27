@@ -13,11 +13,14 @@ count, never compared against 0. tests/test_reconcile.py runs the same pandas pa
 committed fixture slices against a pipeline built from them, so the check runs in CI too.
 
 Run: uv run python scripts/reconcile.py   (needs DATABASE_URL, or DATABASE_URL_DIRECT)
-Exits with status 1 when the total difference is not 0.
+     uv run python scripts/reconcile.py --against duckdb   (the local build, before a load)
+Exits with status 1 when the total difference is not 0. Only the Postgres run writes
+eval/reconcile.md; the DuckDB run is the gate the ETL workflow checks before loading.
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 import re
 from pathlib import Path
@@ -79,6 +82,20 @@ def db_counts() -> dict[int, dict[str, int]]:
     }
 
 
+DUCKDB = ROOT / "data" / "work" / "filed.duckdb"
+
+
+def duckdb_counts(path: Path = DUCKDB) -> dict[int, dict[str, int]]:
+    import duckdb
+
+    with duckdb.connect(str(path), read_only=True) as con:
+        rows = con.execute(
+            "SELECT fiscal_year, sum(filed), sum(certified), sum(withdrawn), sum(denied) "
+            "FROM agg_lca_year GROUP BY 1 ORDER BY 1"
+        ).fetchall()
+    return {r[0]: dict(zip(MEASURES, map(int, r[1:]), strict=True)) for r in rows}
+
+
 def compare(raw: dict[int, dict[str, int]], db: dict[int, dict[str, int]]) -> tuple[list[str], int]:
     """Markdown table rows and the total absolute difference. A year missing on either
     side counts its whole value as the difference."""
@@ -94,9 +111,18 @@ def compare(raw: dict[int, dict[str, int]], db: dict[int, dict[str, int]]) -> tu
 
 
 def main() -> None:
-    db = db_counts()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--against", choices=["postgres", "duckdb"], default="postgres")
+    args = ap.parse_args()
+    db = db_counts() if args.against == "postgres" else duckdb_counts()
     raw = {fy: pandas_counts(files) for fy, files in raw_files().items()}
     rows, total_diff = compare(raw, db)
+    if args.against == "duckdb":
+        print("\n".join(rows))
+        print("total difference (raw files vs local DuckDB):", total_diff)
+        if total_diff:
+            raise SystemExit(1)
+        return
     lines = [
         "# Reconcile",
         "",

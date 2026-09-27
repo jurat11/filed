@@ -38,17 +38,17 @@ TABLES = {
     "agg_links": "links",
 }
 
+# Each index serves a query in web/lib (docs/postgres-growth.md lists which). Indexes no
+# query uses were dropped: employers (uscis_initial_total) and lca_cube (employer_id).
 INDEXES = [
     "CREATE UNIQUE INDEX ON {s}.employers (slug)",
     "CREATE UNIQUE INDEX ON {s}.employers (employer_id)",
-    "CREATE INDEX ON {s}.employers (uscis_initial_total DESC)",
     "CREATE INDEX ON {s}.aliases (employer_id)",
     "CREATE INDEX ON {s}.aliases USING gin (norm gin_trgm_ops)",
     "CREATE INDEX ON {s}.lca_year (employer_id, fiscal_year)",
     "CREATE INDEX ON {s}.lca_year_role (employer_id)",
     "CREATE INDEX ON {s}.lca_year_top (employer_id)",
     "CREATE INDEX ON {s}.lca_cube (fiscal_year, role_group, worksite_state, wage_level)",
-    "CREATE INDEX ON {s}.lca_cube (employer_id)",
     "CREATE INDEX ON {s}.entry_signal (employer_id)",
     "CREATE INDEX ON {s}.uscis_year (employer_id)",
     "CREATE INDEX ON {s}.links (employer_a)",
@@ -134,9 +134,22 @@ def revalidate(loaded_at: str, attempts: int = 4, wait: float = 5.0) -> dict:
     raise RevalidateError(f"revalidate {site} failed: {last}")
 
 
-def run() -> dict:
+def loaded_fingerprint(url: str) -> str | None:
+    """The ETL fingerprint of the data the database serves (filed.meta), if any."""
+    try:
+        with psycopg.connect(url) as pg:
+            row = pg.execute(
+                "SELECT value FROM filed.meta WHERE key = 'etl_fingerprint'"
+            ).fetchone()
+    except (psycopg.errors.UndefinedTable, psycopg.errors.InvalidSchemaName):
+        return None
+    return row[0] if row else None
+
+
+def run(fingerprint: str | None = None) -> dict:
     duck = ingest.connect()
-    counts = load(duck, database_url())
+    extra = {"etl_fingerprint": fingerprint} if fingerprint else {}
+    counts = load(duck, database_url(), extra_meta=extra)
     counts["revalidate"] = revalidate(counts["loaded_at"])
     return counts
 
@@ -146,6 +159,7 @@ def load(
     url: str,
     files: dict | None = None,
     target: str = "filed",
+    extra_meta: dict | None = None,
 ) -> dict:
     """Copy the aggregate tables from `duck` into a new schema and swap it in as `target`.
 
@@ -199,6 +213,7 @@ def load(
                 0
             ],
         }
+        meta.update(extra_meta or {})
         cur.executemany(f"INSERT INTO {schema}.meta VALUES (%s, %s)", list(meta.items()))
         counts["loaded_at"] = meta["loaded_at"]
 

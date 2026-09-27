@@ -12,6 +12,10 @@ dependencies = [
     "python-calamine>=0.8.2",
 ]
 
+[project.optional-dependencies]
+# Only for `filed fetch` / `filed push-raw` against an S3-compatible bucket.
+store = ["boto3>=1.34"]
+
 [project.scripts]
 filed = "etl.cli:main"
 

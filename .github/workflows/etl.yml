@@ -1,0 +1,101 @@
+name: etl
+
+# Rebuild the data from the raw store and load Neon. Reads secrets only from Actions
+# secrets (docs/operations.md). Fails, before touching Neon, on any row count mismatch
+# (ingest, USCIS and load assert them) or any reconcile difference.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Rerun every step even if its inputs are unchanged
+        type: boolean
+        default: false
+      load:
+        description: Load Neon and revalidate the site after the checks pass
+        type: boolean
+        default: true
+  schedule:
+    - cron: "0 9 3 * *" # 09:00 UTC on the 3rd of each month
+
+concurrency:
+  group: etl
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      FILED_STORE_URL: ${{ secrets.FILED_STORE_URL }}
+      FILED_STORE_ENDPOINT: ${{ secrets.FILED_STORE_ENDPOINT }}
+      FILED_STORE_REGION: ${{ secrets.FILED_STORE_REGION }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.FILED_STORE_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.FILED_STORE_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked --extra store
+
+      - name: Check secrets
+        run: |
+          missing=""
+          for v in FILED_STORE_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          [ -z "$missing" ] || { echo "::error::missing secrets:$missing (docs/operations.md)"; exit 1; }
+
+      # Staged Parquet is keyed by the raw files' hashes, so an unchanged year is not re-read
+      # from xlsx (the slow part). ingest re-stages any file whose hash differs anyway.
+      - name: Raw file key
+        id: rawkey
+        run: echo "key=$(uv run python -c 'import json,hashlib; m=json.load(open("data/manifest.json"))["files"]; print(hashlib.sha256(json.dumps(sorted((k, v["sha256"]) for k, v in m.items())).encode()).hexdigest()[:16])')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        with:
+          path: data/work/staged
+          key: staged-${{ steps.rawkey.outputs.key }}
+          restore-keys: staged-
+
+      - name: Restore data/raw from the store
+        run: uv run filed fetch
+
+      - name: Build (every step whose inputs changed)
+        run: uv run filed all --no-load ${{ inputs.force && '--force' || '' }}
+
+      - name: Reconcile raw files against the build (must be 0)
+        run: uv run python scripts/reconcile.py --against duckdb
+
+      - name: Evaluation reports
+        run: uv run python scripts/eval_employers.py
+
+      - name: Load Neon and revalidate the site
+        if: github.event_name == 'schedule' || inputs.load
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FILED_SITE_URL: ${{ secrets.FILED_SITE_URL }}
+          REVALIDATE_SECRET: ${{ secrets.REVALIDATE_SECRET }}
+        run: |
+          [ -n "$DATABASE_URL" ] || { echo "::error::DATABASE_URL secret is not set"; exit 1; }
+          uv run filed all ${{ inputs.force && '--force' || '' }}
+
+      - name: Reconcile raw files against Neon (must be 0)
+        if: github.event_name == 'schedule' || inputs.load
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: uv run python scripts/reconcile.py
+
+      - name: Summary
+        if: always()
+        run: |
+          uv run filed status >> "$GITHUB_STEP_SUMMARY" || true
+          [ -f eval/reconcile.md ] && cat eval/reconcile.md >> "$GITHUB_STEP_SUMMARY" || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: etl-reports
+          path: |
+            eval/
+            data/manifest.json

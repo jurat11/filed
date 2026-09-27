@@ -199,3 +199,16 @@ def test_revalidate_fails_loudly_on_auth_error(monkeypatch):
     with pytest.raises(load.RevalidateError, match="401"):
         load.revalidate("x", wait=0)
     assert len(site.requests) == 1
+
+
+@needs_pg
+def test_db_sizes_report(duck, pg):
+    from scripts.db_sizes import measure, report
+
+    load.load(duck, URL, files=seed.manifest_files())
+    m = measure(URL)
+    assert {t[0] for t in m["tables"]} >= set(load.TABLES.values())
+    assert len(m["indexes"]) >= len(load.INDEXES)
+    text = report(m, 512)
+    assert "Needed during a load (two copies)" in text
+    assert "| 2026 |" in text
