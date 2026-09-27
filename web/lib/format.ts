@@ -34,3 +34,26 @@ export function sourceLabel(file: string): string {
   const m = file.match(/FY_?(\d{4})_(Q[\d-Q]+)/);
   return m ? `DOL LCA FY${m[1]} ${m[2]}` : file;
 }
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/**
+ * Last day covered by a DOL release: fiscal year FY runs October 1 (FY-1) to
+ * September 30 (FY), so Q1 ends December 31 of FY-1 and Q4 ends September 30 of FY.
+ */
+export function quarterEnd(fy: number, quarter: number): string {
+  const [m, d, y] = [
+    [11, 31, fy - 1],
+    [2, 31, fy],
+    [5, 30, fy],
+    [8, 30, fy],
+  ][Math.min(Math.max(quarter, 1), 4) - 1];
+  return `${MONTHS[m]} ${d}, ${y}`;
+}
+
+/** 1234567 -> "1.2M", 12900 -> "12.9K": for large standalone figures. */
+export function compact(v: unknown): string {
+  const x = n(v);
+  if (x === null) return MISSING;
+  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(x);
+}
