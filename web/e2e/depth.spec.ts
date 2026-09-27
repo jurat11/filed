@@ -42,3 +42,28 @@ test("a reviewed group links members without merging them", async ({ page }) => 
 test("unknown group is a 404", async ({ page }) => {
   expect((await page.goto("/group/nope"))?.status()).toBe(404);
 });
+
+test("guide explains the terms and says how current the data is", async ({ page }) => {
+  await page.goto("/guide");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How to read the numbers");
+  await expect(page.getByText("Level I is the entry level")).toBeVisible();
+  await expect(page.getByText(/June 30, 2026 \(FY2026 Q3\)/)).toBeVisible();
+});
+
+test("theme toggle switches and is remembered", async ({ page }) => {
+  await page.goto("/");
+  const toggle = page.getByRole("button", { name: /Switch to (dark|light) theme/ });
+  const before = await toggle.getAttribute("aria-label");
+  await toggle.click();
+  const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+  expect(before).toContain(theme!);
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe(theme);
+});
+
+test("home shows headline numbers with sources and freshness", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByText("Up to date through")).toBeVisible();
+  await expect(page.getByText("June 30, 2026").first()).toBeVisible();
+  await expect(page.locator("footer")).toContainText("DOL LCA data through June 30, 2026 (FY2026 Q3 release)");
+});

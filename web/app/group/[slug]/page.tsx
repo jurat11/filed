@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SourceTag } from "@/components/SourceTag";
+import { Badge, PageHeader } from "@/components/ui";
 import { int, n } from "@/lib/format";
 import { group } from "@/lib/queries";
 
@@ -31,10 +32,10 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
   const head = members[0];
 
   return (
-    <div>
-      <p className="text-sm text-muted">Related entities, reviewed parent map</p>
-      <h1 className="mt-1 text-3xl font-semibold tracking-tight">{head.group_name}</h1>
-      <p className="mt-3 max-w-2xl text-sm">
+    <div className="space-y-6">
+      <PageHeader eyebrow="Related entities, reviewed parent map" title={head.group_name}>
+        <p className="mb-3"><Badge tone="accent" icon="check">Reviewed {head.reviewed_on}</Badge></p>
+        <p>
         These are separate employers, each with its own federal tax ID (FEIN). Filed keeps their
         figures apart; this page only lists them together because a person reviewed evidence
         that they belong to one parent:{" "}
@@ -42,24 +43,26 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
           evidence
         </a>{" "}
         (reviewed {head.reviewed_on}).
-      </p>
+        </p>
+      </PageHeader>
 
-      <Scroll label="Members" className="mt-8">
-        <table className="num w-full min-w-[640px] text-sm">
+      <div className="card overflow-hidden">
+      <Scroll label="Members">
+        <table className="data-table num w-full min-w-[640px] text-sm">
           <caption className="sr-only">Certified LCAs per member and fiscal year</caption>
-          <thead className="text-left text-muted">
-            <tr className="border-b border-line">
-              <th scope="col" className="py-2 font-normal">Employer (FEIN)</th>
+          <thead className="text-left">
+            <tr>
+              <th scope="col">Employer (FEIN)</th>
               {fys.map((fy) => (
-                <th key={fy} scope="col" className="text-right font-normal">FY{fy} certified</th>
+                <th key={fy} scope="col" className="text-right">FY{fy} certified</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {members.map((m) => (
-              <tr key={m.slug} className="border-b border-line">
-                <td className="py-2">
-                  <Link href={`/employer/${m.slug}`} className="underline">{m.display_name}</Link>
+              <tr key={m.slug}>
+                <td>
+                  <Link href={`/employer/${m.slug}`} className="font-medium text-accent hover:underline">{m.display_name}</Link>
                   <span className="ml-2 font-mono text-xs text-muted">{m.fein}</span>
                 </td>
                 {fys.map((fy) => {
@@ -72,8 +75,8 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
                 })}
               </tr>
             ))}
-            <tr>
-              <td className="py-2 text-muted">Sum of the separate employers above</td>
+            <tr className="bg-surface-2">
+              <td className="text-muted">Sum of the separate employers above</td>
               {fys.map((fy) => (
                 <td key={fy} className="text-right text-muted">
                   {int(years.filter((y) => n(y.fiscal_year) === fy).reduce((t, y) => t + (n(y.certified) ?? 0), 0))}
@@ -83,13 +86,14 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
           </tbody>
         </table>
       </Scroll>
-      <div className="mt-2 flex flex-wrap gap-2">
+      </div>
+      <div className="flex flex-wrap gap-2">
         {fys.map((fy) => {
           const ys = years.filter((y) => n(y.fiscal_year) === fy);
           return <SourceTag key={fy} file={String(ys[0].source_file)} rows={ys.reduce((t, y) => t + (n(y.filed) ?? 0), 0)} />;
         })}
       </div>
-      <p className="mt-4 text-xs text-muted">
+      <p className="text-xs text-muted">
         A dash means the employer filed no LCA that year. The sum is a sum of separate employers,
         not a merged employer; every other figure on Filed stays at the FEIN level.
       </p>

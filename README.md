@@ -8,20 +8,25 @@ Every figure on the site carries a source tag (for example "DOL LCA FY2025 Q1-Q4
 
 Live site: https://filed-gray.vercel.app
 
-![An employer page: certified LCAs by fiscal year as a line and a table, each row with its source tag](docs/img/employer-page.png)
+![The home page: search, headline numbers with source tags, and how current the data is](docs/img/home.png)
 
-<sub>Screenshot of the test build, which runs on a sample of about 800 real LCA rows (`filed seed`), so the counts are the sample's, not the employer's full totals.</sub>
+![An employer page: at-a-glance tiles, certified LCAs by year as a line and a table, each figure with its source tag](docs/img/employer-page.png)
+
+<sub>Screenshots of the test build, which runs on a sample of about 800 real LCA rows (`filed seed`), so the counts are the sample's, not the employer's full totals.</sub>
 
 ## How to read an employer page
 
-1. **Header.** The employer is one federal tax ID (FEIN). City and state are where most of its LCAs say it is. Badges show whether it was H-1B dependent on its latest LCAs, whether any LCA reported it as a willful violator, and "No LCA match" when only USCIS has a record of it.
-2. **LCAs by fiscal year.** The line and table count Labor Condition Applications, not visas. Certified means DOL certified the form; an employer files one before an H-1B petition. A hollow point with a dashed line is a partial year (the latest DOL release covers October to June).
-3. **Source tags.** The small grey labels ("DOL LCA FY2025 Q1-Q4, 728 rows") name the file and the number of rows behind a figure. They link to /sources, which lists every file with its download date and SHA-256.
-4. **Offered wage.** The lower bound of the pay range on certified, full-time LCAs, annualized. The bar spans the 25th to 75th percentile; the tick is the median. By role group, percentiles are per fiscal year and never combined across years.
-5. **Wage level mix.** The prevailing wage level the employer chose on each LCA (I is entry level). Since the FY2027 cap season the lottery weighs registrations by wage level, which is why the level matters.
-6. **Entry-level signal.** A count: certified LCAs in software, data, finance and quant roles at level I or II, and their share of the employer's certified LCAs, over the last two loaded years. It is not a probability of sponsorship.
-7. **USCIS petition decisions.** Approvals and denials from the USCIS H-1B Employer Data Hub, matched by name, state and the last four tax ID digits. A dash means the figure is not in the file or no record matched; it never means zero.
-8. **Related legal entities and similar employers.** Related entities share a normalized name but file under a different FEIN (for example two ASML legal entities); their numbers are never merged. Similar employers share this employer's NAICS industry code and state.
+The site's own [guide](https://filed-gray.vercel.app/guide) explains every term in plain English. In short:
+
+1. **At a glance.** Four tiles sum the employer up: certified LCAs and median offered pay in the latest year, the entry-level share, and USCIS initial approvals. Each says what it means and where it comes from.
+2. **Header.** The employer is one federal tax ID (FEIN). City and state are where most of its LCAs say it is. Badges show whether it was H-1B dependent on its latest LCAs, whether any LCA reported it as a willful violator, and "No LCA match" when only USCIS has a record of it.
+3. **LCAs by fiscal year.** The line and table count Labor Condition Applications, not visas. Certified means DOL certified the form; an employer files one before an H-1B petition. A hollow point with a dashed line is a partial year (the latest DOL release covers October to June).
+4. **Source tags.** The small grey labels ("DOL LCA FY2025 Q1-Q4, 728 rows") name the file and the number of rows behind a figure. They link to /sources, which lists every file with its download date and SHA-256.
+5. **Offered pay.** The lower bound of the pay range on certified, full-time LCAs, annualized. The bar spans the 25th to 75th percentile; the tick is the median. By role group, percentiles are per fiscal year and never combined across years.
+6. **Wage level mix.** The prevailing wage level the employer chose on each LCA (I is entry level). Since the FY2027 cap season the lottery weighs registrations by wage level, which is why the level matters.
+7. **Entry-level signal.** A count: certified LCAs in software, data, finance and quant roles at level I or II, and their share of the employer's certified LCAs, over the last two loaded years. It is not a probability of sponsorship.
+8. **USCIS petition decisions.** Approvals and denials from the USCIS H-1B Employer Data Hub, matched by name, state and the last four tax ID digits. A dash means the figure is not in the file or no record matched; it never means zero.
+9. **Related legal entities and similar employers.** Related entities share a normalized name but file under a different FEIN (for example two ASML legal entities); their numbers are never merged. Similar employers share this employer's NAICS industry code and state.
 
 ## Numbers
 
