@@ -41,6 +41,11 @@ TABLES = {
 
 # Each index serves a query in web/lib (docs/postgres-growth.md lists which). Indexes no
 # query uses were dropped: employers (uscis_initial_total) and lca_cube (employer_id).
+# The shape of the tables the site reads. Bump it when a web query needs a table or column
+# an older load does not have; web/scripts/check-schema.mjs refuses to build the site
+# against a database loaded with an older version (docs/deploy.md).
+SCHEMA_VERSION = 2
+
 INDEXES = [
     "CREATE UNIQUE INDEX ON {s}.employers (slug)",
     "CREATE UNIQUE INDEX ON {s}.employers (employer_id)",
@@ -203,6 +208,7 @@ def load(
             "SELECT DISTINCT fiscal_year FROM lca ORDER BY 1").fetchall()]  # fmt: skip
         meta = {
             "loaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+            "schema_version": str(SCHEMA_VERSION),
             "lca_years": json.dumps(years),
             "uscis_years": json.dumps(
                 [

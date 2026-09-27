@@ -6,7 +6,7 @@ Filed is a search tool built only from U.S. government records: every Labor Cond
 
 Every figure on the site carries a source tag (for example "DOL LCA FY2025 Q1-Q4, 728 rows") that links to the file it came from.
 
-Live site: https://filed-gray.vercel.app
+Live site: https://filed-gray.vercel.app (deploys from `main` on Vercel; see [docs/deploy.md](docs/deploy.md))
 
 ![The home page: search, headline numbers with source tags, and how current the data is](docs/img/home.png)
 
