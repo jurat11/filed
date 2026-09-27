@@ -1,0 +1,33 @@
+name: probe-sources
+on: [push, workflow_dispatch]
+jobs:
+  build-from-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      FILED_STORE_URL: source:
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv sync --locked
+      - run: df -h / | tail -1; echo "cpu $(nproc) mem $(free -g | awk '/Mem:/{print $2}')G"
+      - name: filed fetch (download 1.8 GB from the agencies, hashes checked)
+        run: time uv run filed fetch
+      - run: du -sh data/raw; find data/raw -type f | wc -l
+      - name: filed all --no-load (the whole build)
+        run: time uv run filed all --no-load
+      - name: reconcile against the build (must be 0)
+        run: time uv run python scripts/reconcile.py --against duckdb
+      - name: sizes and status
+        if: always()
+        run: |
+          uv run filed status
+          du -sh data/work/* 2>/dev/null
+          head -40 eval/reconcile.md 2>/dev/null
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-reports
+          path: |
+            eval/
+            data/manifest.json
