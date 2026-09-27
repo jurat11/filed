@@ -1,6 +1,7 @@
 # Operations
 
-How the data gets from DOL and USCIS to the live site, and what each piece needs.
+How the data gets from DOL and USCIS to the live site, and what each piece needs. Deploying
+the site itself, and the order to follow when code needs new tables: docs/deploy.md.
 
 ## Workflows
 

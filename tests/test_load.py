@@ -8,6 +8,8 @@ and recreate the "filed" schema.
 from __future__ import annotations
 
 import os
+import re
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -35,6 +37,12 @@ needs_pg = pytest.mark.skipif(not URL, reason="TEST_DATABASE_URL not set")
 )
 def test_pg_type(duck, pg):
     assert load.pg_type(duck) == pg
+
+
+def test_schema_version_matches_the_site_build_check():
+    # web/scripts/check-schema.mjs refuses to build against an older load; both must agree.
+    mjs = (Path(__file__).parents[1] / "web" / "scripts" / "check-schema.mjs").read_text()
+    assert re.search(r"export const REQUIRED = (\d+);", mjs).group(1) == str(load.SCHEMA_VERSION)
 
 
 def test_unknown_type_fails_loudly():
@@ -91,6 +99,7 @@ def test_load_copies_every_table_with_mapped_types(duck, pg):
     assert meta["lca_years"] == "[2023, 2024, 2025, 2026]"
     assert meta["uscis_years"] == "[2023, 2024, 2025]"
     assert meta["entry_years"] == "2025-2026"
+    assert meta["schema_version"] == str(load.SCHEMA_VERSION)
     assert pg.execute("SELECT count(*) FROM filed.sources").fetchone()[0] == len(
         seed.manifest_files()
     )
