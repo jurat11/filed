@@ -28,16 +28,16 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 72,
-          background: "#fbfaf7",
-          color: "#1c1b19",
+          background: "#f5f6f8",
+          color: "#0f172a",
         }}
       >
-        <div style={{ fontSize: 34, color: "#1f5f8b", fontWeight: 700 }}>Filed</div>
+        <div style={{ fontSize: 34, color: "#256abf", fontWeight: 700 }}>Filed</div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: name.length > 40 ? 56 : 72, fontWeight: 700, lineHeight: 1.1 }}>{name}</div>
           <div style={{ fontSize: 40, marginTop: 24 }}>{line}</div>
         </div>
-        <div style={{ fontSize: 24, color: "#6b675f" }}>
+        <div style={{ fontSize: 24, color: "#5b6474" }}>
           {source || "Built from DOL and USCIS public records"}
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { int, MISSING, n, pct, sourceLabel, usd } from "@/lib/format";
+import { compact, int, MISSING, n, pct, quarterEnd, sourceLabel, usd } from "@/lib/format";
 
 describe("n", () => {
   it.each([null, undefined, "", "abc", NaN, Infinity, true])("%s is missing, not 0", (v) => {
@@ -52,5 +52,24 @@ describe("sourceLabel", () => {
     ["something_else.csv", "something_else.csv"],
   ])("%s -> %s", (file, label) => {
     expect(sourceLabel(file)).toBe(label);
+  });
+});
+
+describe("quarterEnd", () => {
+  it.each([
+    [2026, 1, "December 31, 2025"],
+    [2026, 2, "March 31, 2026"],
+    [2026, 3, "June 30, 2026"],
+    [2025, 4, "September 30, 2025"],
+  ])("FY%i Q%i ends %s", (fy, q, want) => {
+    expect(quarterEnd(fy, q)).toBe(want);
+  });
+});
+
+describe("compact", () => {
+  it("abbreviates large numbers and keeps missing as missing", () => {
+    expect(compact(2136934)).toBe("2.1M");
+    expect(compact(12900)).toBe("12.9K");
+    expect(compact(null)).toBe(MISSING);
   });
 });

@@ -23,7 +23,8 @@ https://www.dol.gov/sites/dolgov/files/ETA/oflc/pdfs/LCA_Worksite_Record_Layout_
 ## USCIS -> data/raw/uscis/
 Page: https://www.uscis.gov/tools/reports-and-studies/h-1b-employer-data-hub
 
-FY2024 and later are only in the hub's viewer. For each fiscal year:
+FY2024 and later are only in the hub's viewer, which (as of September 27, 2026) covers
+through FY2026 Q3. For each fiscal year:
 
 1. Open the hub, choose the table (employer) view and filter Fiscal Year to one year.
 2. Download > Crosstab > CSV (or Download > Data > full data, CSV). Either works:

@@ -214,3 +214,24 @@ export const employerSlugs = cached("employerSlugs", (chunk: number) =>
 export const groupSlugs = cached("groupSlugs", () =>
   sql<{ group_slug: string }>("SELECT DISTINCT group_slug FROM filed.groups ORDER BY 1"),
 );
+
+/** Site-wide totals and how recent the data is, for the home page and the footer. */
+export const siteStats = cached("siteStats", async () => {
+  const [[t], [emp], [latest]] = await Promise.all([
+    sql<{ filed: string; certified: string; years: number }>(
+      "SELECT sum(filed)::bigint AS filed, sum(certified)::bigint AS certified, count(DISTINCT fiscal_year)::int AS years FROM filed.lca_year",
+    ),
+    sql<{ n: number }>("SELECT count(*)::int AS n FROM filed.employers WHERE has_lca"),
+    sql<{ fiscal_year: number; quarter: number; source_file: string }>(
+      `SELECT fiscal_year, max(quarter)::int AS quarter, max(source_file) AS source_file
+         FROM filed.lca_year GROUP BY fiscal_year ORDER BY fiscal_year DESC LIMIT 1`,
+    ),
+  ]);
+  return {
+    filed: Number(t?.filed ?? 0),
+    certified: Number(t?.certified ?? 0),
+    employers: emp?.n ?? 0,
+    latestYear: latest?.fiscal_year ?? null,
+    latestQuarter: latest?.quarter ?? null,
+  };
+});

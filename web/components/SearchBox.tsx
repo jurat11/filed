@@ -59,6 +59,9 @@ export function SearchBox({ defaultValue }: { defaultValue: string }) {
 
   return (
     <div className="relative w-full">
+      <svg aria-hidden viewBox="0 0 24 24" className="pointer-events-none absolute left-3 top-3.5 h-5 w-5 text-muted" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round">
+        <path d="M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm10 2-4.35-4.35" />
+      </svg>
       <input
         name="q"
         value={q}
@@ -93,14 +96,14 @@ export function SearchBox({ defaultValue }: { defaultValue: string }) {
         aria-controls={listId}
         aria-activedescendant={shown && active >= 0 ? `${listId}-${active}` : undefined}
         autoComplete="off"
-        className="w-full rounded-md border border-line bg-surface px-3 py-2 outline-none focus:border-accent"
+        className="h-12 w-full rounded-lg border border-line bg-surface pl-10 pr-3 text-base shadow-sm outline-none transition placeholder:text-muted focus:border-accent focus:ring-4 focus:ring-accent-soft"
       />
       <ul
         id={listId}
         role="listbox"
         aria-label="Employer suggestions"
         hidden={!shown}
-        className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface shadow-lg"
+        className="absolute z-30 mt-2 w-full overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-xl"
       >
         {items.map((s, i) => {
           const note = aliasNote(s.name, s.alias);
@@ -115,7 +118,7 @@ export function SearchBox({ defaultValue }: { defaultValue: string }) {
                 go(s);
               }}
               onMouseEnter={() => setActive(i)}
-              className={`cursor-pointer px-3 py-2 text-sm ${i === active ? "bg-accent-soft" : ""}`}
+              className={`cursor-pointer px-4 py-2.5 text-sm ${i === active ? "bg-accent-soft" : ""}`}
             >
               <span className="font-medium">{s.name}</span>
               <span className="ml-2 text-muted">{s.state}</span>
