@@ -14,6 +14,27 @@ Live site: https://filed-gray.vercel.app (deploys from `main` on Vercel; see [do
 
 <sub>Screenshots of the test build, which runs on a sample of about 800 real LCA rows (`filed seed`), so the counts are the sample's, not the employer's full totals.</sub>
 
+## At a glance
+
+| | |
+| --- | --- |
+| **What it is** | A search tool over the U.S. government's own H-1B paperwork: type an employer, see how many Labor Condition Applications it filed, for which roles, at which prevailing wage level and at what offered pay. |
+| **Data** | 2,136,934 Labor Condition Applications, FY2023 to FY2026 Q3 (decisions from October 1, 2022 to June 30, 2026), from 26 government files totalling 1.74 GB, plus the USCIS H-1B Employer Data Hub. |
+| **The rule** | Every number shows a source tag naming its file, fiscal year, quarter and row count. Nothing is estimated or scraped from third-party sites. A figure missing from the files is labeled missing, never shown as 0. |
+| **Verified** | 100% of rows loaded on every file; an independent recount of the headline figures from the raw spreadsheets with pandas gives **0 differences**; the employer resolver scores 100% precision and recall on 60 hand-labeled pairs. |
+| **Pipeline** | Python, uv, DuckDB, pandas, six fingerprinted steps so a new quarterly release rebuilds only what it touches. Aggregates load into Neon Postgres by building a new schema and swapping it in inside one transaction. |
+| **Site** | Next.js 15 App Router, React 19 server components, Tailwind v4, trigram search in Postgres, cached queries with on-demand revalidation, light and dark themes, accessibility tested in both. |
+| **Automation** | GitHub Actions: CI (pytest against a real Postgres, tsc, Vitest, Playwright with axe), a monthly refresh that downloads the government files and loads Neon, and a weekly watch that opens an issue when DOL or USCIS publish something newer. |
+
+Two problems took most of the work. **Employer identity:** the FY2023 files omit the federal
+tax ID, so those cases are linked by normalized name and state, and different legal entities
+of one parent (Amazon.com Services and Amazon Web Services) are never merged automatically;
+related entities are shown side by side, and grouped only through a hand-reviewed parent map
+that cites the filing proving the relationship. **The USCIS join:** the two agencies share no
+key, so employers are matched on normalized name, state and the last four tax ID digits,
+which reaches 74.8% of USCIS employers and 87.3% of approvals. That rate is published on the
+site rather than hidden.
+
 ## How to read an employer page
 
 The site's own [guide](https://filed-gray.vercel.app/guide) explains every term in plain English. In short:
