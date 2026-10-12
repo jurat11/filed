@@ -28,7 +28,7 @@ export function ThemeToggle() {
         }
         setTheme(next);
       }}
-      className="grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-ink"
+      className="grid h-10 w-9 place-items-center border sm:w-10 border-line-strong text-ink-2 transition hover:bg-surface-2 hover:text-ink"
       aria-label={theme ? `Switch to ${next} theme` : "Switch theme"}
       title={theme ? `Switch to ${next} theme` : "Switch theme"}
     >

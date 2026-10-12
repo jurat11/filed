@@ -1,6 +1,5 @@
-import { ImageResponse } from "next/og";
 import { int, n, sourceLabel, usd } from "@/lib/format";
-import { OG_SIZE, OgCard, type OgStat } from "@/lib/og";
+import { OG_SIZE, type OgStat, renderCard } from "@/lib/og";
 import { employer } from "@/lib/queries";
 
 export const alt = "Employer H-1B LCA summary on Filed";
@@ -34,8 +33,11 @@ export default async function Image({ params }: { params: Promise<{ slug: string
       ? "USCIS Data Hub records only (no DOL LCA match)"
       : "Built from DOL and USCIS public records";
 
-  return new ImageResponse(
-    <OgCard eyebrow="Employer H-1B filings" title={name} stats={stats} source={source} />,
-    size,
-  );
+  return renderCard({
+    eyebrow: "Employer H-1B filings",
+    title: name,
+    stats,
+    source,
+    stamp: last ? ["FILED", `DOL LCA FY${String(last.fiscal_year)}`] : undefined,
+  });
 }

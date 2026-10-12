@@ -34,12 +34,12 @@ export default async function GroupPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="space-y-6">
       <PageHeader eyebrow="Related entities, reviewed parent map" title={head.group_name}>
-        <p className="mb-3"><Badge tone="accent" icon="check">Reviewed {head.reviewed_on}</Badge></p>
+        <p className="mb-3"><Badge tone="accent">Reviewed {head.reviewed_on}</Badge></p>
         <p>
         These are separate employers, each with its own federal tax ID (FEIN). Filed keeps their
         figures apart; this page only lists them together because a person reviewed evidence
         that they belong to one parent:{" "}
-        <a href={head.evidence_url} className="underline">
+        <a href={head.evidence_url} className="underline underline-offset-4">
           evidence
         </a>{" "}
         (reviewed {head.reviewed_on}).

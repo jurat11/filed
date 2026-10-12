@@ -6,7 +6,7 @@ export function LogoMark({ className = "h-8 w-8" }: { className?: string }) {
   return (
     <span
       aria-hidden
-      className={`grid shrink-0 place-items-center rounded-lg bg-accent text-accent-ink ${className}`}
+      className={`grid shrink-0 place-items-center rounded-[3px] bg-accent text-accent-ink ${className}`}
     >
       <svg viewBox={LOGO_VIEWBOX} className="h-[78%] w-[78%]">
         <path d={LOGO_PAGE} fill="currentColor" stroke="currentColor" strokeWidth={1.5} strokeLinejoin="round" />

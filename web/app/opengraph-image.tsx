@@ -1,7 +1,6 @@
-import { ImageResponse } from "next/og";
 import { compact } from "@/lib/format";
-import { OG_SIZE, OgCard, type OgStat } from "@/lib/og";
-import { siteStats } from "@/lib/queries";
+import { OG_SIZE, type OgStat, renderCard } from "@/lib/og";
+import { lcaYears, siteStats } from "@/lib/queries";
 
 export const alt = "Filed: which employers file H-1B paperwork, and at what pay";
 export const size = OG_SIZE;
@@ -14,8 +13,9 @@ export const revalidate = 86400;
 export default async function Image() {
   let stats: OgStat[] = [];
   let source = "Built only from U.S. Department of Labor and USCIS public records";
+  let stamp = ["FILED"];
   try {
-    const s = await siteStats();
+    const [s, years] = await Promise.all([siteStats(), lcaYears()]);
     if (s.filed > 0) {
       stats = [
         { value: compact(s.filed), label: "LCAs filed" },
@@ -23,18 +23,16 @@ export default async function Image() {
       ];
       if (s.latestYear) source = `DOL LCA disclosure data through FY${s.latestYear} · USCIS Employer Data Hub`;
     }
+    if (years.length) stamp = ["FILED", `DOL LCA, FY${Math.min(...years)} to FY${Math.max(...years)}`];
   } catch {
     // Render the card without numbers rather than failing the share preview.
   }
-  return new ImageResponse(
-    (
-      <OgCard
-        eyebrow="H-1B filings, from public records"
-        title="Which employers file H-1B paperwork for entry-level roles, and at what pay"
-        stats={stats}
-        source={source}
-      />
-    ),
-    size,
-  );
+  return renderCard({
+    eyebrow: "H-1B filings, from public records",
+    title: "Which employers file H-1B paperwork for entry-level roles, and at what pay",
+    stats,
+    source,
+    stamp,
+    bigStamp: true,
+  });
 }
