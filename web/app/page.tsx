@@ -86,7 +86,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
         >
           <div className="pl-[0.3em] font-mono text-4xl font-semibold tracking-[0.3em]">FILED</div>
           <div className="label mt-1.5 border-t border-warn pt-1.5">DOL LCA, FY{first} to FY{last}</div>
-          {through && <div className="label mt-0.5">through {through}</div>}
         </div>
       </section>
 
@@ -105,7 +104,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
               suffixes such as LLC ignored.
             </p>
           ) : (
-            <ol className="divide-y divide-line border-y-2 border-ink bg-surface">
+            <ul className="divide-y divide-line border-y-2 border-ink bg-surface">
               {results.map((r, i) => (
                 <li key={r.slug}>
                   <Link href={`/employer/${r.slug}`} className="group flex items-baseline gap-4 px-4 py-4 transition hover:bg-accent-soft">
@@ -134,7 +133,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
                   </Link>
                 </li>
               ))}
-            </ol>
+            </ul>
           )}
         </section>
       )}
