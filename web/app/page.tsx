@@ -155,6 +155,26 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
         </section>
       )}
 
+      <section aria-labelledby="start-title">
+        <h2 id="start-title" className="text-xl font-semibold tracking-tight">
+          Start here
+        </h2>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {presets.map((p) => (
+            <Link key={p.label} href={p.href} className="card group p-5 transition hover:border-accent">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent">
+                <Icon name={p.icon} />
+              </span>
+              <div className="mt-4 font-medium group-hover:text-accent">{p.label}</div>
+              <div className="mt-1 text-sm text-muted">{p.note}</div>
+              <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
+                Open in Explore <Icon name="arrow" className="h-3.5 w-3.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section aria-labelledby="numbers-title">
         <h2 id="numbers-title" className="text-xl font-semibold tracking-tight">
           What is in the data
@@ -186,26 +206,6 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
             value={through ?? "–"}
             note={`The latest DOL release (FY${stats.latestYear} Q${stats.latestQuarter}). DOL publishes a new one each quarter.`}
           />
-        </div>
-      </section>
-
-      <section aria-labelledby="start-title">
-        <h2 id="start-title" className="text-xl font-semibold tracking-tight">
-          Start here
-        </h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          {presets.map((p) => (
-            <Link key={p.label} href={p.href} className="card group p-5 transition hover:border-accent">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent-soft text-accent">
-                <Icon name={p.icon} />
-              </span>
-              <div className="mt-4 font-medium group-hover:text-accent">{p.label}</div>
-              <div className="mt-1 text-sm text-muted">{p.note}</div>
-              <div className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent">
-                Open in Explore <Icon name="arrow" className="h-3.5 w-3.5" />
-              </div>
-            </Link>
-          ))}
         </div>
       </section>
 

@@ -3,12 +3,21 @@ import Link from "next/link";
 import { Card, Icon, PageHeader } from "@/components/ui";
 import { quarterEnd } from "@/lib/format";
 import { siteStats, uscisYears } from "@/lib/queries";
+import { SHARE_IMAGE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Guide: how to read the numbers",
   description:
     "Plain-English definitions of LCAs, wage levels, offered pay, USCIS approvals and every other figure on Filed, and what the data cannot tell you.",
   alternates: { canonical: "/guide" },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "How to read H-1B LCA numbers, in plain English | Filed",
+    description:
+      "Plain-English definitions of LCAs, wage levels, offered pay, USCIS approvals and every other figure on Filed, and what the data cannot tell you.",
+    images: [SHARE_IMAGE],
+  },
 };
 
 const TERMS: { term: string; id: string; body: React.ReactNode }[] = [

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Card, PageHeader } from "@/components/ui";
 import { int } from "@/lib/format";
 import { meta, sources } from "@/lib/queries";
+import { SHARE_IMAGE } from "@/lib/site";
 
 // Rebuilt when `filed load` purges the data cache; one day otherwise.
 export const revalidate = 86400;
@@ -10,6 +11,13 @@ export const metadata: Metadata = {
   title: "Sources and method",
   description: "Every government file behind Filed, with its download date, row counts and SHA-256, plus definitions and limitations.",
   alternates: { canonical: "/sources" },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "Sources and method | Filed",
+    description: "Every government file behind Filed, with its download date, row counts and SHA-256, plus definitions and limitations.",
+    images: [SHARE_IMAGE],
+  },
 };
 
 const REPO = "https://github.com/jurat11/filed/blob/main";

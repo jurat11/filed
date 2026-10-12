@@ -17,7 +17,12 @@ export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://filed-gray.vercel.app"),
   title: { default: "Filed: H-1B filings by employer, from public records", template: "%s | Filed" },
   description,
-  openGraph: { siteName: "Filed", type: "website", title: "Filed", description },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "Filed: which employers file H-1B paperwork, and at what pay",
+    description,
+  },
   twitter: { card: "summary_large_image" },
 };
 

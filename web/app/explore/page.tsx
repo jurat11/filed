@@ -12,12 +12,21 @@ import {
   STATES,
 } from "@/lib/explore";
 import { explore, LEVELS, lcaYears, parseExplore, ROLE_GROUPS, siteStats, uscisYears } from "@/lib/queries";
+import { SHARE_IMAGE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Explore",
   description:
     "Filter employers by role group, worksite state, wage level and fiscal year, using certified H-1B LCAs from DOL disclosure data.",
   alternates: { canonical: "/explore" },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "Explore H-1B employers by role, place and wage level | Filed",
+    description:
+      "Filter employers by role group, worksite state, wage level and fiscal year, using certified H-1B LCAs from DOL disclosure data.",
+    images: [SHARE_IMAGE],
+  },
 };
 
 type SP = Record<string, string | string[] | undefined>;

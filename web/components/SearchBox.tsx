@@ -88,7 +88,7 @@ export function SearchBox({ defaultValue }: { defaultValue: string }) {
         }}
         onBlur={() => setOpen(false)}
         onFocus={() => items.length && setOpen(true)}
-        placeholder="Search an employer, e.g. Capital One"
+        placeholder="Search a company, e.g. Google"
         aria-label="Employer name"
         role="combobox"
         aria-autocomplete="list"
