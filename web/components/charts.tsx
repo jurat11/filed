@@ -48,7 +48,7 @@ export function TrendLine({ points, title }: { points: TrendPoint[]; title: stri
         {ticks.map((t) => (
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} stroke="var(--grid)" strokeWidth={1} />
-            <text x={pad.l - 10} y={y(t) + 4} textAnchor="end" fontSize={12} fill="var(--muted)" className="num">
+            <text x={pad.l - 10} y={y(t) + 4} textAnchor="end" fontSize={12} fill="var(--muted)" fontFamily="var(--font-mono)">
               {int(Math.round(t))}
             </text>
           </g>
@@ -66,7 +66,7 @@ export function TrendLine({ points, title }: { points: TrendPoint[]; title: stri
               y2={y(p.value)}
               stroke="var(--series)"
               strokeWidth={2}
-              strokeLinecap="round"
+              strokeLinecap="butt"
               strokeDasharray={p.partial ? "6 5" : undefined}
             />
           );
@@ -74,18 +74,19 @@ export function TrendLine({ points, title }: { points: TrendPoint[]; title: stri
         {points.map((p, i) =>
           p.value === null ? null : (
             <g key={p.label}>
-              <circle
-                cx={x(i)}
-                cy={y(p.value)}
-                r={5}
+              <rect
+                x={x(i) - 5}
+                y={y(p.value) - 5}
+                width={10}
+                height={10}
                 fill={p.partial ? "var(--surface)" : "var(--series)"}
-                stroke={p.partial ? "var(--series)" : "var(--surface)"}
+                stroke="var(--series)"
                 strokeWidth={2}
               />
               {/* Larger invisible target for the hover title. */}
-              <circle cx={x(i)} cy={y(p.value)} r={14} fill="transparent">
+              <rect x={x(i) - 14} y={y(p.value) - 14} width={28} height={28} fill="transparent">
                 <title>{`${p.label}${p.partial ? " (partial year)" : ""}: ${int(p.value)} certified LCAs`}</title>
-              </circle>
+              </rect>
             </g>
           ),
         )}
@@ -96,13 +97,14 @@ export function TrendLine({ points, title }: { points: TrendPoint[]; title: stri
             fontSize={13}
             fontWeight={600}
             fill="var(--ink)"
+            fontFamily="var(--font-mono)"
           >
             {int(points[lastIdx].value)}
           </text>
         )}
         <line x1={pad.l} x2={W - pad.r} y1={y(0)} y2={y(0)} stroke="var(--line)" strokeWidth={1} />
         {points.map((p, i) => (
-          <text key={p.label} x={x(i)} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--muted)">
+          <text key={p.label} x={x(i)} y={H - 8} textAnchor="middle" fontSize={12} fill="var(--muted)" fontFamily="var(--font-mono)">
             {p.label}
             {p.partial ? "*" : ""}
           </text>
@@ -123,23 +125,23 @@ export function LevelBar({ parts }: { parts: { label: string; value: number }[] 
   if (!total) return <p className="text-sm text-muted">No certified LCAs in these years.</p>;
   return (
     <div>
-      <div className="flex h-6 w-full gap-[2px] overflow-hidden rounded-md" role="img" aria-label={parts.map((p) => `${p.label} ${Math.round((100 * p.value) / total)}%`).join(", ")}>
+      <div className="flex h-6 w-full gap-px border border-ink bg-ink" role="img" aria-label={parts.map((p) => `${p.label} ${Math.round((100 * p.value) / total)}%`).join(", ")}>
         {parts.map((p, i) =>
           p.value ? (
             <div key={p.label} title={`${p.label}: ${int(p.value)}`} style={{ flexGrow: p.value, background: LEVEL_COLORS[i] }} />
           ) : null,
         )}
       </div>
-      <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <dl className="mt-4 grid grid-cols-2 gap-px border border-line bg-line sm:grid-cols-5">
         {parts.map((p, i) => (
-          <div key={p.label} className="rounded-lg bg-surface-2 px-3 py-2">
-            <dt className="flex items-center gap-2 text-xs text-muted">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: LEVEL_COLORS[i] }} />
+          <div key={p.label} className="bg-surface px-3 py-2">
+            <dt className="label flex items-center gap-2 text-muted">
+              <span className="h-2.5 w-2.5 border border-ink" style={{ background: LEVEL_COLORS[i] }} />
               {p.label}
             </dt>
-            <dd className="mt-1 text-lg font-semibold">
+            <dd className="mt-1 text-xl font-semibold">
               {Math.round((100 * p.value) / total)}%
-              <span className="num ml-1.5 text-xs font-normal text-muted">{int(p.value)}</span>
+              <span className="num ml-1.5 font-mono text-xs font-normal text-muted">{int(p.value)}</span>
             </dd>
           </div>
         ))}
@@ -159,10 +161,10 @@ export function BarList({ items }: { items: { label: string; value: number }[] }
       {shown.map((i) => (
         <li key={i.label} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-sm sm:grid-cols-[12rem_1fr_7rem]">
           <span className="truncate text-ink-2">{i.label}</span>
-          <span className="h-2.5 rounded-full bg-surface-2">
-            <span className="block h-2.5 rounded-full bg-series" style={{ width: `${Math.max(2, (100 * i.value) / max)}%` }} />
+          <span className="h-3 border border-line-strong bg-surface-2">
+            <span className="block h-full bg-series" style={{ width: `${Math.max(2, (100 * i.value) / max)}%` }} />
           </span>
-          <span className="num text-right">
+          <span className="num text-right font-mono text-[0.8125rem]">
             <span className="font-medium">{int(i.value)}</span>
             <span className="ml-1.5 text-muted">{Math.round((100 * i.value) / total)}%</span>
           </span>
@@ -185,20 +187,20 @@ export function WageRanges({
     <ul className="space-y-5">
       {rows.map((r) => (
         <li key={r.label} className="grid gap-2 sm:grid-cols-[4.5rem_1fr_15rem] sm:items-center sm:gap-4">
-          <span className="text-sm font-medium">{r.label}</span>
+          <span className="label text-ink">{r.label}</span>
           {n(r.count) ? (
-            <div className="relative h-3 rounded-full bg-surface-2" aria-hidden>
+            <div className="relative h-3 border border-line-strong bg-surface-2" aria-hidden>
               <div
-                className="absolute h-3 rounded-full"
+                className="absolute -top-px -bottom-px border border-ink"
                 style={{ left: pos(r.p25), width: `calc(${pos(r.p75)} - ${pos(r.p25)})`, background: "var(--lvl-1)" }}
               />
-              <div className="absolute -top-1 h-5 w-1 rounded-full bg-series ring-2 ring-surface" style={{ left: `calc(${pos(r.median)} - 2px)` }} />
+              <div className="absolute -top-1.5 h-[1.125rem] w-1 bg-ink" style={{ left: `calc(${pos(r.median)} - 2px)` }} />
             </div>
           ) : (
             <span className="text-sm text-muted">No valid wages</span>
           )}
           <div className="text-sm">
-            <span className="num">
+            <span className="num font-mono text-[0.8125rem]">
               <span className="font-semibold">{usd(r.median)}</span>
               <span className="text-muted"> median · {usd(r.p25)} to {usd(r.p75)}</span>
             </span>

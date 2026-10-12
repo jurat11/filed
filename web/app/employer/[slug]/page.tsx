@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { BarList, LevelBar, TrendLine, WageRanges } from "@/components/charts";
 import { Scroll } from "@/components/Scroll";
 import { SourceTag } from "@/components/SourceTag";
-import { Badge, Card, Explain, Icon, StatTile } from "@/components/ui";
+import { Badge, Card, Explain, StatGrid, StatTile } from "@/components/ui";
 import { CAP_EXEMPT_RULES } from "@/lib/capExempt";
 import { int, MISSING, n, pct, quarterEnd, usd } from "@/lib/format";
 import { employer, lcaYears, ROLE_GROUPS, uscisYears } from "@/lib/queries";
@@ -35,18 +35,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: e.display_name,
     description,
     alternates: { canonical: `/employer/${e.slug}` },
-    openGraph: { title: `${e.display_name} | Filed`, description, type: "article" },
+    openGraph: { title: `${e.display_name} | Filed`, description, type: "article", siteName: "Filed" },
   };
-}
-
-function initials(name: string) {
-  return name
-    .replace(/[^A-Za-z0-9 ]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w && !/^(THE|INC|LLC|LLP|CORP)$/i.test(w))
-    .slice(0, 2)
-    .map((w) => w[0].toUpperCase())
-    .join("");
 }
 
 export default async function EmployerPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -78,54 +68,42 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="space-y-6">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted">
-        <Link href="/" className="hover:text-ink">Search</Link>
+      <nav aria-label="Breadcrumb" className="font-mono text-xs text-muted">
+        <Link href="/" className="underline underline-offset-4 hover:text-ink">Search</Link>
         <span aria-hidden className="mx-2">/</span>
         <span className="text-ink-2">{e.display_name}</span>
       </nav>
 
       <header className="card p-6 sm:p-8">
-        <div className="flex items-start gap-4 sm:gap-5">
-          <span aria-hidden className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-accent-soft text-lg font-semibold text-accent sm:h-14 sm:w-14">
-            {initials(e.display_name)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{e.display_name}</h1>
-            <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted">
-              {(e.city || e.state) && (
-                <span className="inline-flex items-center gap-1">
-                  <Icon name="map" className="h-3.5 w-3.5" />
-                  {[e.city, e.state].filter(Boolean).join(", ")}
-                </span>
-              )}
-              {e.fein && <span className="font-mono">FEIN {e.fein}</span>}
-              {e.naics && <span>NAICS {e.naics}</span>}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {!e.has_lca && <Badge tone="warn" icon="alert">No LCA match: USCIS data only</Badge>}
-              {e.h1b_dependent_latest && <Badge>H-1B dependent (as reported on its latest LCAs)</Badge>}
-              {e.cap_exempt_rule && <Badge tone="accent" icon="grad">Likely cap-exempt</Badge>}
-              {e.willful_violator_ever && <Badge tone="warn" icon="alert">Reported as a willful violator on an LCA</Badge>}
-            </div>
-          </div>
+        <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">{e.display_name}</h1>
+        <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 font-mono text-sm text-muted">
+          {(e.city || e.state) && <span>{[e.city, e.state].filter(Boolean).join(", ")}</span>}
+          {e.fein && <span>FEIN {e.fein}</span>}
+          {e.naics && <span>NAICS {e.naics}</span>}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {!e.has_lca && <Badge tone="warn">No LCA match: USCIS data only</Badge>}
+          {e.h1b_dependent_latest && <Badge>H-1B dependent (as reported on its latest LCAs)</Badge>}
+          {e.cap_exempt_rule && <Badge tone="accent">Likely cap-exempt</Badge>}
+          {e.willful_violator_ever && <Badge tone="warn">Reported as a willful violator on an LCA</Badge>}
         </div>
         {e.cap_exempt_rule && (
-          <p className="mt-5 rounded-xl bg-accent-soft px-4 py-3 text-sm text-ink-2">
+          <p className="mt-5 border-l-2 border-ink bg-accent-soft px-4 py-3 text-[0.9375rem] text-ink">
             Likely cap-exempt because {CAP_EXEMPT_RULES[e.cap_exempt_rule] ?? e.cap_exempt_rule}. Cap-exempt
             employers (universities, their affiliated nonprofits, nonprofit and government research
             organizations) hire outside the H-1B lottery. This is a rule applied to the data, not a USCIS
             determination; a for-profit college can match it.{" "}
-            <Link href="/sources#cap-exempt" className="font-medium text-accent underline">The rule</Link>
+            <Link href="/sources#cap-exempt" className="font-medium underline underline-offset-4">The rule</Link>
           </p>
         )}
       </header>
 
       {sections.length > 1 && (
-        <nav aria-label="On this page" className="sticky top-16 z-30 -mx-4 border-b border-line bg-bg/85 px-4 py-2 backdrop-blur">
-          <ul className="flex gap-1 overflow-x-auto text-sm">
+        <nav aria-label="On this page" className="sticky top-0 z-30 -mx-4 border-b border-ink bg-bg px-4">
+          <ul className="flex gap-5 overflow-x-auto">
             {sections.map(([id, label]) => (
               <li key={id}>
-                <a href={`#${id}`} className="block whitespace-nowrap rounded-lg px-3 py-1.5 font-medium text-muted transition hover:bg-surface-2 hover:text-ink">
+                <a href={`#${id}`} className="label block whitespace-nowrap border-b-2 border-transparent py-3 text-muted transition hover:border-ink hover:text-ink">
                   {label}
                 </a>
               </li>
@@ -136,23 +114,20 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
 
       {e.has_lca && latest && (
         <>
-          <section aria-label="At a glance" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatGrid label="At a glance">
             <StatTile
-              icon="file"
               label={`Certified LCAs, FY${String(latest.fiscal_year)}`}
               value={int(latest.certified)}
               note={`${int(latest.filed)} filed${partial ? `, through ${coverage}` : ""}`}
               source={<SourceTag file={String(latest.source_file)} rows={latest.filed} />}
             />
             <StatTile
-              icon="dollar"
               label={`Median offered pay, FY${String(latest.fiscal_year)}`}
               value={usd(latest.wage_median)}
               note="Yearly, certified full-time LCAs"
               source={<SourceTag file={String(latest.source_file)} rows={latest.wage_rows} />}
             />
             <StatTile
-              icon="grad"
               label="Entry-level share"
               value={sig ? pct(sig.entry_lcas, sig.certified_all) : MISSING}
               note={
@@ -163,13 +138,12 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
               source={sig ? <SourceTag file={latest2.map((y) => y.source_file).join(" + ")} rows={sig.certified_all} /> : undefined}
             />
             <StatTile
-              icon="users"
               label={lastUscis ? `USCIS initial approvals, FY${String(lastUscis.fiscal_year)}` : "USCIS initial approvals"}
               value={lastUscis ? int(lastUscis.initial_approvals) : MISSING}
               note={lastUscis ? "Workers new to H-1B employment with this employer" : `No USCIS record matched. Years loaded: ${uLabel}`}
               source={lastUscis ? <SourceTag file={String(lastUscis.source_file)} rows={lastUscis.rows} /> : undefined}
             />
-          </section>
+          </StatGrid>
 
           <Card id="overview" title="LCAs by fiscal year" description="Every Labor Condition Application this employer filed, by the status DOL gave it.">
             <TrendLine
@@ -234,7 +208,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
                 source: <SourceTag file={String(y.source_file)} rows={y.wage_rows} />,
               }))}
             />
-            <h3 className="mt-8 text-sm font-semibold">Offered wage by role group, {lastSrc}</h3>
+            <h3 className="mt-8 border-t border-line pt-5 text-lg font-semibold">Offered wage by role group, {lastSrc}</h3>
             <p className="mt-1 text-sm text-muted">
               Per fiscal year; percentiles are not combined across years. The prevailing wage is the wage
               DOL requires for the occupation, area and level on each LCA, annualized the same way.
@@ -279,7 +253,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
               </table>
             </Scroll>
 
-            <h3 className="mt-8 text-sm font-semibold">Wage level mix, {lastSrc}</h3>
+            <h3 className="mt-8 border-t border-line pt-5 text-lg font-semibold">Wage level mix, {lastSrc}</h3>
             <p className="mb-4 mt-1 text-sm text-muted">The prevailing wage level the employer chose on each certified LCA. Level I is the entry level.</p>
             <LevelBar
               parts={[
@@ -293,7 +267,7 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
             <p className="mt-4 text-sm text-ink-2">
               Since the FY2027 cap season, the H-1B lottery gives a registration 1 entry at wage level I, 2
               at II, 3 at III and 4 at IV (rule effective February 27, 2026).{" "}
-              <a href={LOTTERY_URL} className="font-medium text-accent underline">USCIS announcement</a>. Levels
+              <a href={LOTTERY_URL} className="font-medium text-accent underline underline-offset-4">USCIS announcement</a>. Levels
               shown are those on past LCAs.
             </p>
             <div className="mt-3">
@@ -321,16 +295,16 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
             />
 
             {sig && (
-              <div className="mt-8 rounded-2xl border border-line p-5">
-                <h3 className="text-sm font-semibold">Entry-level signal</h3>
-                <p className="mt-2 text-2xl font-semibold tracking-tight">
+              <div className="mt-8 border border-line-strong p-5">
+                <h3 className="label text-ink">Entry-level signal</h3>
+                <p className="mt-2 text-3xl font-semibold tracking-tight">
                   {int(sig.entry_lcas)}{" "}
                   <span className="text-base font-normal text-muted">
                     entry-level LCAs, {pct(sig.entry_lcas, sig.certified_all)} of {int(sig.certified_all)} certified, FY
                     {String(sig.years).replace("-", " to FY")}
                   </span>
                 </p>
-                <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 font-mono text-xs text-muted">
+                <p className="mt-3 border-l-2 border-ink bg-surface-2 px-3 py-2 font-mono text-xs text-muted">
                   entry-level LCAs = certified LCAs in Software engineering, Data and analytics, Finance, or
                   Quant and actuarial at wage level I or II
                   <br />
@@ -354,18 +328,18 @@ export default async function EmployerPage({ params }: { params: Promise<{ slug:
               {(["title", "state"] as const).map((kind) => {
                 const rows = (top as Row[]).filter((t) => t.kind === kind && n(t.fiscal_year) === n(latest.fiscal_year));
                 return (
-                  <div key={kind}>
-                    <h3 className="text-sm font-semibold">
+                  <div key={kind} className="min-w-0">
+                    <h3 className="border-b border-ink pb-1 text-lg font-semibold">
                       Top {kind === "title" ? "job titles" : "worksite states"}, FY{String(latest.fiscal_year)}
                     </h3>
-                    <ol className="num mt-3 divide-y divide-line text-sm">
+                    <ol className="num divide-y divide-line text-[0.9375rem]">
                       {rows.map((t, i) => (
                         <li key={String(t.value)} className="flex items-center justify-between gap-4 py-2">
                           <span className="flex min-w-0 items-center gap-3">
-                            <span className="w-4 text-xs text-muted">{i + 1}</span>
+                            <span className="w-5 font-mono text-xs text-muted">{i + 1}</span>
                             <span className="truncate">{String(t.value)}</span>
                           </span>
-                          <span className="text-muted">{int(t.certified)}</span>
+                          <span className="font-mono text-[0.8125rem] text-muted">{int(t.certified)}</span>
                         </li>
                       ))}
                     </ol>

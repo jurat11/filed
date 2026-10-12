@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Card, Icon, PageHeader } from "@/components/ui";
+import { Card, PageHeader } from "@/components/ui";
 import { quarterEnd } from "@/lib/format";
 import { siteStats, uscisYears } from "@/lib/queries";
+import { SHARE_IMAGE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Guide: how to read the numbers",
   description:
     "Plain-English definitions of LCAs, wage levels, offered pay, USCIS approvals and every other figure on Filed, and what the data cannot tell you.",
   alternates: { canonical: "/guide" },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "How to read H-1B LCA numbers, in plain English | Filed",
+    description:
+      "Plain-English definitions of LCAs, wage levels, offered pay, USCIS approvals and every other figure on Filed, and what the data cannot tell you.",
+    images: [SHARE_IMAGE],
+  },
 };
 
 const TERMS: { term: string; id: string; body: React.ReactNode }[] = [
@@ -146,10 +155,10 @@ export default async function Guide() {
                 ["Employer files a petition", "with USCIS"],
                 ["USCIS decides", "approves or denies the petition"],
               ].map(([t, d], i) => (
-                <li key={t} className="relative rounded-xl bg-surface-2 p-4">
-                  <span className="text-xs font-semibold text-accent">Step {i + 1}</span>
-                  <p className="mt-1 text-sm font-medium">{t}</p>
-                  <p className="mt-0.5 text-sm text-muted">{d}</p>
+                <li key={t} className="border-t-2 border-ink pt-3">
+                  <span className="label text-accent">Step {i + 1}</span>
+                  <p className="mt-1 font-semibold">{t}</p>
+                  <p className="mt-0.5 text-[0.9375rem] text-muted">{d}</p>
                 </li>
               ))}
             </ol>
@@ -164,7 +173,7 @@ export default async function Guide() {
             <dl className="divide-y divide-line">
               {TERMS.map((t) => (
                 <div key={t.id} id={t.id} className="grid gap-1 py-4 first:pt-0 last:pb-0 sm:grid-cols-[14rem_1fr] sm:gap-6">
-                  <dt className="font-medium">{t.term}</dt>
+                  <dt className="text-lg font-semibold">{t.term}</dt>
                   <dd className="text-sm leading-6 text-ink-2">{t.body}</dd>
                 </div>
               ))}
@@ -181,7 +190,7 @@ export default async function Guide() {
                 "Past filings do not guarantee future sponsorship. This is not legal advice.",
               ].map((x) => (
                 <li key={x} className="flex gap-3">
-                  <Icon name="alert" className="mt-0.5 h-4 w-4 text-warn" />
+                  <span aria-hidden className="font-mono font-semibold text-warn">!</span>
                   <span>{x}</span>
                 </li>
               ))}
@@ -189,7 +198,7 @@ export default async function Guide() {
           </Card>
         </div>
 
-        <aside className="space-y-6 lg:sticky lg:top-24">
+        <aside className="space-y-6 lg:sticky lg:top-6">
           <Card title="How current is it?">
             <dl className="space-y-3 text-sm">
               <div>
@@ -208,8 +217,8 @@ export default async function Guide() {
                 <dd>DOL publishes each quarter; a watcher opens an issue when a new file appears.</dd>
               </div>
             </dl>
-            <Link href="/sources" className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-accent hover:underline">
-              Every file, with its hash <Icon name="arrow" className="h-3.5 w-3.5" />
+            <Link href="/sources" className="mt-4 inline-block py-1 font-medium text-accent underline underline-offset-4 hover:text-accent-hover">
+              Every file, with its hash &rarr;
             </Link>
           </Card>
           <Card title="On this page">

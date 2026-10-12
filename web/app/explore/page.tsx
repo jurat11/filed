@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Scroll } from "@/components/Scroll";
-import { buttonClass, Icon, PageHeader } from "@/components/ui";
+import { buttonClass, PageHeader } from "@/components/ui";
 import { int, quarterEnd, usd } from "@/lib/format";
 import {
   EXPORT_LIMIT,
@@ -12,12 +12,21 @@ import {
   STATES,
 } from "@/lib/explore";
 import { explore, LEVELS, lcaYears, parseExplore, ROLE_GROUPS, siteStats, uscisYears } from "@/lib/queries";
+import { SHARE_IMAGE } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Explore",
   description:
     "Filter employers by role group, worksite state, wage level and fiscal year, using certified H-1B LCAs from DOL disclosure data.",
   alternates: { canonical: "/explore" },
+  openGraph: {
+    siteName: "Filed",
+    type: "website",
+    title: "Explore H-1B employers by role, place and wage level | Filed",
+    description:
+      "Filter employers by role group, worksite state, wage level and fiscal year, using certified H-1B LCAs from DOL disclosure data.",
+    images: [SHARE_IMAGE],
+  },
 };
 
 type SP = Record<string, string | string[] | undefined>;
@@ -56,11 +65,11 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
       : null;
   const fyLabel = (fy: string) => `FY${fy}${Number(fy) === latest && partialTo ? ` (through ${partialTo})` : ""}`;
   const active = chips(p, fyLabel);
-  const field = "mt-1.5 block h-10 w-full rounded-lg border border-line bg-surface px-3 text-sm font-normal outline-none focus:border-accent focus:ring-4 focus:ring-accent-soft";
-  const check = "h-4 w-4 rounded accent-[var(--accent)]";
+  const field = "mt-1.5 block h-11 w-full border border-line-strong bg-surface px-3 font-serif text-base font-normal normal-case tracking-normal text-ink outline-none focus:border-ink focus:bg-bg";
+  const check = "h-[1.125rem] w-[1.125rem] accent-[var(--accent)]";
   const first = total ? (p.page - 1) * PAGE_SIZE + 1 : 0;
   const exportQs = exploreQuery(p, { page: 1 });
-  const legend = "text-xs font-semibold uppercase tracking-wide text-muted";
+  const legend = "label text-muted";
 
   return (
     <div>
@@ -70,10 +79,8 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
       </PageHeader>
 
       <div className="grid gap-6 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start">
-        <form action="/explore" aria-label="Filters" className="card space-y-6 p-5 lg:sticky lg:top-24">
-          <div className="flex items-center gap-2 font-semibold">
-            <Icon name="filter" className="h-4 w-4 text-accent" /> Filters
-          </div>
+        <form action="/explore" aria-label="Filters" className="card space-y-6 p-5 lg:sticky lg:top-6">
+          <div className="label border-b border-ink pb-2 text-ink">Filters</div>
           <fieldset>
             <legend className={legend}>Role group</legend>
             <div className="mt-2 space-y-1.5">
@@ -88,19 +95,19 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
             <legend className={legend}>Wage level</legend>
             <div className="mt-2 grid grid-cols-4 gap-2">
               {LEVELS.map((l) => (
-                <label key={l} className="flex cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-line py-1.5 text-sm has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:text-accent has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-accent">
+                <label key={l} className="flex min-h-10 cursor-pointer items-center justify-center gap-1.5 border border-line-strong font-mono text-sm has-[:checked]:border-ink has-[:checked]:bg-accent-soft has-[:checked]:font-semibold has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent">
                   <input type="checkbox" name="level" value={l} defaultChecked={p.level.includes(l)} className="sr-only" /> {l}
                 </label>
               ))}
             </div>
             <p className="mt-1.5 text-xs text-muted">Level I is entry level.</p>
           </fieldset>
-          <details className="rounded-lg border border-line text-sm" open={p.state.length > 0 || undefined}>
-            <summary className="flex cursor-pointer items-center justify-between px-3 py-2 font-medium">
+          <details className="border border-line-strong text-[0.9375rem]" open={p.state.length > 0 || undefined}>
+            <summary className="flex min-h-11 cursor-pointer items-center justify-between px-3 py-2 font-medium">
               Worksite states{p.state.length ? ` (${p.state.join(", ")})` : ": all"}
               <span aria-hidden className="text-muted">▾</span>
             </summary>
-            <fieldset className="grid max-h-56 grid-cols-4 gap-x-2 gap-y-1.5 overflow-y-auto border-t border-line px-3 py-2">
+            <fieldset className="grid max-h-56 grid-cols-4 gap-x-2 gap-y-1.5 overflow-y-auto border-t border-line-strong px-3 py-2 font-mono text-sm">
               <legend className="sr-only">Worksite states</legend>
               {STATES.map((s) => (
                 <label key={s} className="flex items-center gap-1.5">
@@ -137,7 +144,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           {p.sort !== "certified" && <input type="hidden" name="sort" value={p.sort} />}
           <div className="flex gap-2">
             <button className={`${buttonClass} flex-1`}>Apply</button>
-            <Link href="/explore" className="inline-flex items-center rounded-lg border border-line px-3 text-sm text-muted hover:text-ink">
+            <Link href="/explore" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] text-ink hover:bg-surface-2">
               Reset
             </Link>
           </div>
@@ -150,7 +157,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                 <Link
                   key={c.label}
                   href={c.href}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1 font-medium text-accent transition hover:bg-accent hover:text-accent-ink"
+                  className="inline-flex items-center gap-1.5 border border-ink bg-accent-soft px-2.5 py-1 font-mono text-xs text-ink transition hover:bg-ink hover:text-bg"
                   aria-label={`Remove filter: ${c.label}`}
                 >
                   {c.label} <span aria-hidden="true">×</span>
@@ -158,7 +165,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
               ))}
               <Link
                 href={href(p, { role: [], state: [], level: [], fy: "all", min: 0, hideDependent: false, hideCapExempt: false })}
-                className="px-1 text-muted underline hover:text-ink"
+                className="px-1 text-muted underline underline-offset-4 hover:text-ink"
               >
                 Clear all
               </Link>
@@ -167,14 +174,13 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
 
           <div className="card overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
-              <p className="text-sm text-muted" aria-live="polite">
+              <p className="font-mono text-xs text-muted" aria-live="polite">
                 {total ? `Employers ${int(first)} to ${int(first + rows.length - 1)} of ${int(total)}` : ""}
               </p>
               <a
                 href={`/explore/export${exportQs ? "?" + exportQs : ""}`}
-                className="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm font-medium transition hover:border-accent hover:text-accent"
+                className="inline-flex min-h-10 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] transition hover:bg-surface-2"
               >
-                <Icon name="download" className="h-4 w-4" />
                 Download CSV
               </a>
             </div>
@@ -214,9 +220,9 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                     <tr key={r.slug}>
                       <td className="min-w-[16rem]">
                         <Link href={`/employer/${r.slug}`} className="font-medium hover:text-accent hover:underline">{r.display_name}</Link>
-                        <span className="ml-2 text-xs text-muted">{r.state}</span>
-                        {r.h1b_dependent_latest && <span className="ml-2 rounded bg-surface-2 px-1.5 py-0.5 text-xs text-muted">dependent</span>}
-                        {r.cap_exempt_rule && <span className="ml-2 rounded bg-accent-soft px-1.5 py-0.5 text-xs text-accent">likely cap-exempt</span>}
+                        <span className="ml-2 font-mono text-xs text-muted">{r.state}</span>
+                        {r.h1b_dependent_latest && <span className="ml-2 border border-line-strong px-1.5 font-mono text-[11px] text-muted">dependent</span>}
+                        {r.cap_exempt_rule && <span className="ml-2 bg-accent-soft px-1.5 font-mono text-[11px] text-ink">likely cap-exempt</span>}
                       </td>
                       <td className="text-right font-medium">{int(r.certified)}</td>
                       <td className="text-right">{usd(r.avg_wage)}</td>
@@ -232,21 +238,21 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           {pages > 1 && (
             <nav aria-label="Pages" className="flex items-center justify-between gap-3 text-sm">
               {p.page > 1 ? (
-                <Link href={href(p, { page: p.page - 1 })} rel="prev" className="rounded-lg border border-line bg-surface px-3 py-1.5 font-medium hover:border-accent hover:text-accent">
+                <Link href={href(p, { page: p.page - 1 })} rel="prev" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
                   Previous
                 </Link>
               ) : (
-                <span aria-disabled="true" className="cursor-not-allowed rounded-lg border border-dashed border-line px-3 py-1.5 text-muted">Previous</span>
+                <span aria-disabled="true" className="inline-flex min-h-11 cursor-not-allowed items-center border border-dashed border-line-strong px-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">Previous</span>
               )}
-              <span className="text-muted">
+              <span className="font-mono text-xs text-muted">
                 Page {p.page} of {int(pages)}
               </span>
               {p.page < pages ? (
-                <Link href={href(p, { page: p.page + 1 })} rel="next" className="rounded-lg border border-line bg-surface px-3 py-1.5 font-medium hover:border-accent hover:text-accent">
+                <Link href={href(p, { page: p.page + 1 })} rel="next" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
                   Next
                 </Link>
               ) : (
-                <span aria-disabled="true" className="cursor-not-allowed rounded-lg border border-dashed border-line px-3 py-1.5 text-muted">Next</span>
+                <span aria-disabled="true" className="inline-flex min-h-11 cursor-not-allowed items-center border border-dashed border-line-strong px-3 font-mono text-xs uppercase tracking-[0.1em] text-muted">Next</span>
               )}
             </nav>
           )}
@@ -259,7 +265,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           <p className="text-xs text-muted">
             Source: DOL LCA disclosure files, certified cases only; a dash in the USCIS column means no
             USCIS {uLabel} record matched the employer; mean wage over certified full-time LCAs with a
-            valid annual wage. <Link href="/sources" className="underline">Sources</Link>
+            valid annual wage. <Link href="/sources" className="underline underline-offset-4">Sources</Link>
           </p>
         </div>
       </div>

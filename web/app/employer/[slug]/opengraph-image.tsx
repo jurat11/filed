@@ -1,47 +1,43 @@
-import { ImageResponse } from "next/og";
-import { int, sourceLabel } from "@/lib/format";
+import { int, n, sourceLabel, usd } from "@/lib/format";
+import { OG_SIZE, type OgStat, renderCard } from "@/lib/og";
 import { employer } from "@/lib/queries";
 
 export const alt = "Employer H-1B LCA summary on Filed";
-export const size = { width: 1200, height: 630 };
+export const size = OG_SIZE;
 export const contentType = "image/png";
 export const revalidate = 86400;
 
-/** Share card: the employer's latest-year certified LCAs, with the file it comes from. */
+/** Share card: the employer's latest-year numbers, with the file they come from. A figure
+ * the data does not have is left out, never shown as 0. */
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const d = await employer((await params).slug);
   const name = d?.e.display_name ?? "Employer not found";
   const last = d?.years.at(-1);
-  const line = last
-    ? `${int(last.certified)} certified H-1B LCAs in FY${String(last.fiscal_year)}`
+  const lastUscis = d?.uscis.at(-1);
+
+  const stats: OgStat[] = [];
+  if (last) {
+    const fy = `FY${String(last.fiscal_year)}`;
+    stats.push({ value: int(last.certified), label: `certified LCAs, ${fy}` });
+    if (n(last.wage_median) !== null) stats.push({ value: usd(last.wage_median), label: `median offered pay, ${fy}` });
+  }
+  if (lastUscis && n(lastUscis.initial_approvals) !== null) {
+    stats.push({
+      value: int(lastUscis.initial_approvals),
+      label: `USCIS initial approvals, FY${String(lastUscis.fiscal_year)}`,
+    });
+  }
+  const source = last
+    ? `Source: ${sourceLabel(String(last.source_file))}, ${int(last.filed)} ${n(last.filed) === 1 ? "row" : "rows"}`
     : d
       ? "USCIS Data Hub records only (no DOL LCA match)"
-      : "";
-  const source = last ? `Source: ${sourceLabel(String(last.source_file))}, ${int(last.filed)} rows` : "";
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          display: "flex",
-          flexDirection: "column",
-          justifyContent: "space-between",
-          padding: 72,
-          background: "#f5f6f8",
-          color: "#0f172a",
-        }}
-      >
-        <div style={{ fontSize: 34, color: "#256abf", fontWeight: 700 }}>Filed</div>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: name.length > 40 ? 56 : 72, fontWeight: 700, lineHeight: 1.1 }}>{name}</div>
-          <div style={{ fontSize: 40, marginTop: 24 }}>{line}</div>
-        </div>
-        <div style={{ fontSize: 24, color: "#5b6474" }}>
-          {source || "Built from DOL and USCIS public records"}
-        </div>
-      </div>
-    ),
-    size,
-  );
+      : "Built from DOL and USCIS public records";
+
+  return renderCard({
+    eyebrow: "Employer H-1B filings",
+    title: name,
+    stats,
+    source,
+    stamp: last ? ["FILED", `DOL LCA FY${String(last.fiscal_year)}`] : undefined,
+  });
 }

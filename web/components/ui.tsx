@@ -41,7 +41,7 @@ export function Icon({ name, className = "h-4 w-4", label }: { name: keyof typeo
   );
 }
 
-/** A titled card. `id` makes it a jump target for the in-page navigation. */
+/** A titled box. `id` makes it a jump target for the in-page navigation. */
 export function Card({
   title,
   id,
@@ -62,14 +62,14 @@ export function Card({
   return (
     <section id={id} className={`card ${className}`} aria-labelledby={id && title ? `${id}-title` : undefined}>
       {(title || action) && (
-        <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-5">
+        <div className="flex flex-wrap items-start justify-between gap-3 px-5 pt-4">
           <div className="min-w-0">
             {title && (
-              <h2 id={id ? `${id}-title` : undefined} className="text-base font-semibold tracking-tight">
+              <h2 id={id ? `${id}-title` : undefined} className="text-xl font-semibold tracking-tight">
                 {title}
               </h2>
             )}
-            {description && <p className="mt-1 text-sm text-muted">{description}</p>}
+            {description && <p className="mt-1 text-[0.9375rem] text-muted">{description}</p>}
           </div>
           {action}
         </div>
@@ -79,64 +79,66 @@ export function Card({
   );
 }
 
-/** One headline number with what it means and where it comes from. */
+/** One headline number with what it means and where it comes from. Lives in a StatGrid. */
 export function StatTile({
   label,
   value,
   note,
   source,
-  icon,
 }: {
   label: string;
   value: React.ReactNode;
   note?: React.ReactNode;
   source?: React.ReactNode;
-  icon?: string;
 }) {
+  const long = typeof value === "string" && value.length > 9;
   return (
-    <div className="card flex flex-col p-5">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted">
-        {icon && (
-          <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent-soft text-accent">
-            <Icon name={icon} />
-          </span>
-        )}
-        {label}
-      </div>
-      <div className="mt-3 text-3xl font-semibold tracking-tight">{value}</div>
-      {note && <p className="mt-1 text-sm text-muted">{note}</p>}
+    <div className="flex flex-col p-5">
+      <div className="label text-muted">{label}</div>
+      <div className={`mt-3 font-medium leading-none tracking-tight ${long ? "text-3xl" : "text-4xl"}`}>{value}</div>
+      {note && <p className="mt-2 text-[0.9375rem] leading-snug text-muted">{note}</p>}
       {source && <div className="mt-auto pt-3">{source}</div>}
     </div>
   );
 }
 
+/** Stat tiles as the cells of one ruled ledger: hairlines between them, a heavy rule on top. */
+export function StatGrid({ children, label }: { children: React.ReactNode; label?: string }) {
+  return (
+    <section
+      aria-label={label}
+      className="grid gap-px border border-t-2 border-line border-t-ink bg-line sm:grid-cols-2 lg:grid-cols-4 [&>*]:bg-surface"
+    >
+      {children}
+    </section>
+  );
+}
+
 type Tone = "neutral" | "accent" | "warn" | "good";
 const TONES: Record<Tone, string> = {
-  neutral: "bg-surface-2 text-ink-2",
-  accent: "bg-accent-soft text-accent",
-  warn: "bg-warn-soft text-warn",
-  good: "bg-good-soft text-good",
+  neutral: "border-line-strong text-ink-2",
+  accent: "border-transparent bg-accent-soft text-ink",
+  warn: "border-warn text-warn",
+  good: "border-good text-good",
 };
 
-export function Badge({ tone = "neutral", icon, children }: { tone?: Tone; icon?: string; children: React.ReactNode }) {
+/** A small bordered tag, like a rubber-stamped note on a file. */
+export function Badge({ tone = "neutral", children }: { tone?: Tone; children: React.ReactNode }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${TONES[tone]}`}>
-      {icon && <Icon name={icon} className="h-3.5 w-3.5" />}
+    <span className={`inline-flex items-center border px-2 py-0.5 font-mono text-xs tracking-wide ${TONES[tone]}`}>
       {children}
     </span>
   );
 }
 
-/** "What does this mean?" A disclosure that works without JavaScript. */
+/** "What does this mean?" A margin note that opens in place; works without JavaScript. */
 export function Explain({ summary, children }: { summary: string; children: React.ReactNode }) {
   return (
-    <details className="group mt-4 rounded-xl bg-surface-2 text-sm">
-      <summary className="flex cursor-pointer items-center gap-2 px-4 py-2.5 font-medium text-ink-2 hover:text-ink">
-        <Icon name="info" className="h-4 w-4 text-accent" />
+    <details className="group mt-5 border-l-2 border-ink bg-surface-2 text-[0.9375rem]">
+      <summary className="label flex cursor-pointer items-center justify-between gap-3 px-4 py-3 text-ink-2 hover:text-ink">
         {summary}
-        <span aria-hidden className="ml-auto text-muted transition group-open:rotate-90">
-          ›
-        </span>
+        <span aria-hidden className="text-base leading-none group-open:hidden">+</span>
+        <span aria-hidden className="hidden text-base leading-none group-open:inline">&minus;</span>
       </summary>
       <div className="space-y-2 px-4 pb-4 text-ink-2">{children}</div>
     </details>
@@ -153,13 +155,16 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <header className="mb-8">
-      {eyebrow && <div className="text-sm font-medium text-accent">{eyebrow}</div>}
-      <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
-      {children && <div className="mt-3 max-w-3xl text-base text-muted">{children}</div>}
+    <header className="mb-8 border-b border-ink pb-6">
+      {eyebrow && <div className="label text-accent">{eyebrow}</div>}
+      <h1 className="mt-2 text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl">{title}</h1>
+      {children && <div className="mt-4 max-w-3xl text-lg text-ink-2">{children}</div>}
     </header>
   );
 }
+
+const BUTTON =
+  "inline-flex min-h-11 items-center justify-center gap-2 border px-4 py-2 font-mono text-xs font-medium uppercase tracking-[0.1em] transition";
 
 export function ButtonLink({
   href,
@@ -176,15 +181,15 @@ export function ButtonLink({
 }) {
   const cls =
     variant === "primary"
-      ? "bg-accent text-accent-ink hover:bg-accent-hover"
-      : "border border-line bg-surface text-ink hover:border-accent hover:text-accent";
+      ? "border-accent bg-accent text-accent-ink hover:border-accent-hover hover:bg-accent-hover"
+      : "border-ink text-ink hover:bg-surface-2";
   const inner = (
     <>
       {icon && <Icon name={icon} />}
       {children}
     </>
   );
-  const className = `inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${cls}`;
+  const className = `${BUTTON} ${cls}`;
   return download ? (
     <a href={href} className={className}>
       {inner}
@@ -196,5 +201,4 @@ export function ButtonLink({
   );
 }
 
-export const buttonClass =
-  "inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink transition hover:bg-accent-hover";
+export const buttonClass = `${BUTTON} border-accent bg-accent text-accent-ink hover:border-accent-hover hover:bg-accent-hover`;
