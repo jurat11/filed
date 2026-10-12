@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import Link from "next/link";
+import { LogoMark } from "@/components/LogoMark";
 import { NavLinks } from "@/components/NavLinks";
 import { THEME_SCRIPT, ThemeToggle } from "@/components/ThemeToggle";
 import { quarterEnd } from "@/lib/format";
@@ -36,9 +37,7 @@ export const viewport: Viewport = {
 function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight" aria-label="Filed, home">
-      <span aria-hidden className="grid h-8 w-8 place-items-center rounded-lg bg-accent text-sm font-bold text-accent-ink">
-        F
-      </span>
+      <LogoMark />
       <span className="hidden text-lg sm:inline">Filed</span>
     </Link>
   );

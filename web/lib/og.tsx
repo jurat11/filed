@@ -1,8 +1,38 @@
+import { LOGO_BARS, LOGO_FOLD, LOGO_PAGE, LOGO_VIEWBOX } from "./logo";
+
 /** Shared frame for the 1200x630 share cards (home and employer pages), so a link posted
  * anywhere looks like the site. Colors match the light theme tokens in globals.css. */
 export const OG_SIZE = { width: 1200, height: 630 };
 
 const ACCENT = "#256abf";
+
+/** The Filed mark on its accent badge, for share cards and icons (fixed colors, since these
+ * render outside the page's theme). `radius` is the badge corner in px; 0 gives a full-bleed
+ * square for icons the OS rounds itself. */
+export function OgMark({ size, radius, fill = 0.78 }: { size: number; radius: number; fill?: number }) {
+  const glyph = Math.round(size * fill);
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: radius,
+        background: ACCENT,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <svg width={glyph} height={glyph} viewBox={LOGO_VIEWBOX}>
+        <path d={LOGO_PAGE} fill="#fff" stroke="#fff" strokeWidth={1.5} strokeLinejoin="round" />
+        <path d={LOGO_FOLD} fill={ACCENT} fillOpacity={0.35} />
+        {LOGO_BARS.map((d) => (
+          <path key={d} d={d} fill={ACCENT} />
+        ))}
+      </svg>
+    </div>
+  );
+}
 const INK = "#0f172a";
 const MUTED = "#5b6474";
 const LINE = "#d9dee6";
@@ -39,22 +69,7 @@ export function OgCard({
       }}
     >
       <div style={{ display: "flex", alignItems: "center" }}>
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 14,
-            background: ACCENT,
-            color: "#fff",
-            fontSize: 32,
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          F
-        </div>
+        <OgMark size={56} radius={14} />
         <div style={{ marginLeft: 16, fontSize: 34, fontWeight: 700 }}>Filed</div>
         {eyebrow && (
           <div style={{ marginLeft: "auto", fontSize: 24, color: MUTED, letterSpacing: 1 }}>{eyebrow}</div>
