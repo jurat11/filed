@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SearchBox } from "@/components/SearchBox";
 import { SourceTag } from "@/components/SourceTag";
@@ -7,6 +8,12 @@ import { lcaYears, search, siteStats, uscisYears } from "@/lib/queries";
 import { aliasNote } from "@/lib/search";
 
 const QUICK = ["Amazon", "Google", "JPMorgan", "Deloitte", "Capital One"];
+
+/** Search results (/?q=) are noindex; the plain home page keeps the layout's metadata (D37). */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ q?: string }> }): Promise<Metadata> {
+  const { q } = await searchParams;
+  return q ? { robots: { index: false, follow: false } } : {};
+}
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q = "" } = await searchParams;
@@ -71,6 +78,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ q
               <Link
                 key={w}
                 href={`/?q=${encodeURIComponent(w)}`}
+                rel="nofollow"
                 className="inline-block px-2 py-2 text-ink underline decoration-dotted underline-offset-4 hover:text-accent"
               >
                 {w}

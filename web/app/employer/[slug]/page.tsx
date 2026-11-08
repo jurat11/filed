@@ -10,8 +10,8 @@ import { int, MISSING, n, pct, quarterEnd, usd } from "@/lib/format";
 import { employer, lcaYears, ROLE_GROUPS, uscisYears } from "@/lib/queries";
 
 // Pages are rendered on first request and cached until `filed load` purges the data
-// cache (docs/decisions.md D24), with a one-day fallback.
-export const revalidate = 86400;
+// cache (docs/decisions.md D24), with a 30-day fallback (D37).
+export const revalidate = 2592000; // 30 days; /api/revalidate purges on each load (D24, D37)
 export function generateStaticParams() {
   return [];
 }

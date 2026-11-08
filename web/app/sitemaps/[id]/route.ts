@@ -2,6 +2,9 @@ import { employerSlugs, groupSlugs, meta } from "@/lib/queries";
 import { SITE_URL, xmlEscape } from "@/lib/site";
 
 export const revalidate = 86400;
+export function generateStaticParams() {
+  return [];
+}
 
 const PAGES = ["/", "/explore", "/sources"];
 

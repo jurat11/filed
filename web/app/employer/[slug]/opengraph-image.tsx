@@ -5,7 +5,12 @@ import { employer } from "@/lib/queries";
 export const alt = "Employer H-1B LCA summary on Filed";
 export const size = OG_SIZE;
 export const contentType = "image/png";
-export const revalidate = 86400;
+// Without generateStaticParams this route rendered a PNG in a function on every request;
+// now each card is rendered once and kept like the page itself (D24, D37).
+export const revalidate = 2592000;
+export function generateStaticParams() {
+  return [];
+}
 
 /** Share card: the employer's latest-year numbers, with the file they come from. A figure
  * the data does not have is left out, never shown as 0. */

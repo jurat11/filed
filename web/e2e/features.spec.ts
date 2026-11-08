@@ -126,6 +126,8 @@ test.describe("crawlers", () => {
     expect((await request.get("/sitemaps/abc")).status()).toBe(404);
     const robots = await (await request.get("/robots.txt")).text();
     expect(robots).toContain("Disallow: /api/");
+    expect(robots).toContain("Disallow: /explore?");
+    expect(robots).toContain("Disallow: /?");
     expect(robots).toMatch(/Sitemap: .*\/sitemap\.xml/);
   });
 });
