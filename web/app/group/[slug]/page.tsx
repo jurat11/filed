@@ -7,7 +7,7 @@ import { Badge, PageHeader } from "@/components/ui";
 import { int, n } from "@/lib/format";
 import { group } from "@/lib/queries";
 
-export const revalidate = 86400;
+export const revalidate = 2592000; // 30 days; /api/revalidate purges on each load (D24, D37)
 export function generateStaticParams() {
   return [];
 }

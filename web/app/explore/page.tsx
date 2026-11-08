@@ -14,7 +14,7 @@ import {
 import { explore, LEVELS, lcaYears, parseExplore, ROLE_GROUPS, siteStats, uscisYears } from "@/lib/queries";
 import { SHARE_IMAGE } from "@/lib/site";
 
-export const metadata: Metadata = {
+const META: Metadata = {
   title: "Explore",
   description:
     "Filter employers by role group, worksite state, wage level and fiscal year, using certified H-1B LCAs from DOL disclosure data.",
@@ -30,6 +30,12 @@ export const metadata: Metadata = {
 };
 
 type SP = Record<string, string | string[] | undefined>;
+
+/** Filtered, sorted and paged views are noindex: only plain /explore is a search result (D37). */
+export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }): Promise<Metadata> {
+  const filtered = Object.keys(await searchParams).length > 0;
+  return filtered ? { ...META, robots: { index: false, follow: false } } : META;
+}
 
 const href = (p: ExploreParams, patch: Partial<ExploreParams> = {}) => {
   const q = exploreQuery(p, { page: 1, ...patch });
@@ -157,6 +163,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                 <Link
                   key={c.label}
                   href={c.href}
+                  rel="nofollow"
                   className="inline-flex items-center gap-1.5 border border-ink bg-accent-soft px-2.5 py-1 font-mono text-xs text-ink transition hover:bg-ink hover:text-bg"
                   aria-label={`Remove filter: ${c.label}`}
                 >
@@ -165,6 +172,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
               ))}
               <Link
                 href={href(p, { role: [], state: [], level: [], fy: "all", min: 0, hideDependent: false, hideCapExempt: false })}
+                rel="nofollow"
                 className="px-1 text-muted underline underline-offset-4 hover:text-ink"
               >
                 Clear all
@@ -203,6 +211,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                       >
                         <Link
                           href={href(p, { sort: k })}
+                          rel="nofollow"
                           className={`inline-flex items-center gap-1 ${p.sort === k ? "text-accent" : "hover:text-ink"}`}
                         >
                           {label}
@@ -238,7 +247,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
           {pages > 1 && (
             <nav aria-label="Pages" className="flex items-center justify-between gap-3 text-sm">
               {p.page > 1 ? (
-                <Link href={href(p, { page: p.page - 1 })} rel="prev" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
+                <Link href={href(p, { page: p.page - 1 })} rel="prev nofollow" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
                   Previous
                 </Link>
               ) : (
@@ -248,7 +257,7 @@ export default async function Explore({ searchParams }: { searchParams: Promise<
                 Page {p.page} of {int(pages)}
               </span>
               {p.page < pages ? (
-                <Link href={href(p, { page: p.page + 1 })} rel="next" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
+                <Link href={href(p, { page: p.page + 1 })} rel="next nofollow" className="inline-flex min-h-11 items-center border border-ink px-3 font-mono text-xs uppercase tracking-[0.1em] hover:bg-surface-2">
                   Next
                 </Link>
               ) : (

@@ -9,14 +9,14 @@ export { LEVELS, parseExplore, ROLE_GROUPS } from "./explore";
 /**
  * Every query result is cached under the "filed" tag. The data only changes when the ETL
  * swaps in a new schema, and `filed load` then calls /api/revalidate, which purges the tag
- * (docs/decisions.md D24). The one-day revalidate is a fallback in case that call fails.
+ * (docs/decisions.md D24). The 30-day revalidate is a fallback in case that call fails (D37).
  */
 export const DATA_TAG = "filed";
-const DAY = 86_400;
+const FALLBACK = 30 * 86_400;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function cached<F extends (...args: any[]) => Promise<unknown>>(name: string, fn: F): F {
-  return unstable_cache(fn, ["filed", name], { tags: [DATA_TAG], revalidate: DAY }) as F;
+  return unstable_cache(fn, ["filed", name], { tags: [DATA_TAG], revalidate: FALLBACK }) as F;
 }
 
 export type Employer = {
